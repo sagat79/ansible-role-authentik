@@ -51,6 +51,15 @@ authentik_database_password: ""
 authentik_database_sslmode: disable
 authentik_database_name: authentik
 
+# Time in seconds a database connection can be reused before it's replaced (0 = close after each request)
+authentik_database_conn_max_age: 0
+# Enable database connection health checks
+authentik_database_conn_health_checks: false
+# Disable server-side cursors (useful behind transaction-based connection poolers like pgbouncer)
+authentik_database_disable_server_side_cursors: false
+# The database schema in which authentik operates
+authentik_database_default_schema: public
+
 # Turn true to use StartTLS (usually on port 587)
 authentik_email_use_tls: false
 # Turn true to use SSL (usually on port 465)
@@ -71,6 +80,83 @@ authentik_loglevel: error
 # On IPv4-only hosts (or container networks without IPv6), set this to e.g. `0.0.0.0:9000`.
 # An empty value keeps authentik's own default.
 authentik_listen_http: ""
+
+# A list of CIDRs from which the X-Forwarded-For header is trusted (reverse proxies).
+# An empty list keeps authentik's own default (private ranges + loopback).
+# Example: ['10.0.2.0/24']
+authentik_listen_trusted_proxy_cidrs: []
+
+# The domain the session cookie is set for. Empty means the domain authentik is accessed under.
+# Set this (e.g. `example.com`) to share the cookie across subdomains.
+authentik_cookie_domain: ""
+
+# Controls whether authentik checks for new versions
+authentik_disable_update_check: false
+
+# Timeout (in seconds) for unauthenticated sessions and cached data.
+# Empty values keep authentik's own defaults.
+authentik_sessions_unauthenticated_age: ""  # e.g. `days=1`
+authentik_cache_timeout: ""  # e.g. `300`
+authentik_reputation_expiry: ""  # e.g. `86400`
+
+########################################################################
+#                                                                      #
+# bootstrap                                                            #
+#                                                                      #
+########################################################################
+
+# These variables allow automating the initial setup (instead of visiting
+# the `/if/flow/initial-setup/` flow manually after installation).
+# They only take effect on the very first startup of a fresh installation.
+#
+# The email address for the default admin user (akadmin)
+authentik_bootstrap_email: ""
+# The password for the default admin user (akadmin).
+# Mutually exclusive with authentik_bootstrap_password_hash.
+authentik_bootstrap_password: ""
+# A pre-hashed (Django format) password for the default admin user (authentik 2026.5+).
+# Prefer this over authentik_bootstrap_password to avoid plaintext credentials.
+authentik_bootstrap_password_hash: ""
+# An API token to create for the default admin user
+authentik_bootstrap_token: ""
+
+########################################################################
+#                                                                      #
+# /bootstrap                                                           #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+# storage                                                              #
+#                                                                      #
+########################################################################
+
+# Storage backend for uploaded files (media, reports): `file` or `s3`.
+# With `file`, data is stored under authentik_data_path (mounted at /data).
+authentik_storage_backend: file
+
+# S3 settings (only used when authentik_storage_backend is `s3`)
+authentik_storage_s3_region: ""
+authentik_storage_s3_endpoint: ""
+authentik_storage_s3_access_key: ""
+authentik_storage_s3_secret_key: ""
+authentik_storage_s3_bucket_name: ""
+authentik_storage_s3_custom_domain: ""
+
+########################################################################
+#                                                                      #
+# /storage                                                             #
+#                                                                      #
+########################################################################
+
+# Paths (inside the container) to MaxMind GeoIP databases used to enrich events.
+# The role does not download these databases. To use them, place them under
+# `{{ authentik_data_path }}` (mounted at /data) or mount them via
+# `authentik_container_extra_arguments_custom`.
+# Empty values keep authentik's own defaults (which work with the geoipupdate sidecar layout).
+authentik_events_context_processors_geoip: ""
+authentik_events_context_processors_asn: ""
 
 authentik_environment_variables_authentik_error_reporting_enabled: false
 
@@ -105,6 +191,11 @@ authentik_restart_necessary: false
 authentik_server_identifier: "{{ authentik_identifier }}-server"
 
 authentik_server_version: "{{ authentik_version }}"
+
+# The number of gunicorn worker processes and threads per worker for the server container.
+# Empty values keep authentik's own defaults (2 workers, 4 threads).
+authentik_server_web_workers: ""
+authentik_server_web_threads: ""
 
 # Specify how the container publishes its HTTP port (as defined by `authentik_container_http_port`).
 #
@@ -295,6 +386,11 @@ authentik_server_variables_additional_variables: ""
 authentik_worker_identifier: "{{ authentik_identifier }}-worker"
 
 authentik_worker_version: "{{ authentik_version }}"
+
+# The number of worker processes and threads per process for background tasks.
+# Empty values keep authentik's own defaults (1 process, 2 threads).
+authentik_worker_processes: ""
+authentik_worker_threads: ""
 
 # The base container network. It will be auto-created by this role if it doesn't exist already.
 authentik_worker_container_network: "{{ authentik_container_network }}"

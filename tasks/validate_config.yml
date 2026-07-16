@@ -44,6 +44,30 @@
     - authentik_database_password
     - authentik_secret_key
 
+- name: Fail if authentik_loglevel is invalid
+  ansible.builtin.fail:
+    msg: >-
+      authentik_loglevel (`{{ authentik_loglevel }}`) must be one of: debug, info, warning, error, critical.
+  when: "authentik_loglevel not in ['debug', 'info', 'warning', 'error', 'critical']"
+
+- name: Fail if authentik_storage_backend is invalid
+  ansible.builtin.fail:
+    msg: >-
+      authentik_storage_backend (`{{ authentik_storage_backend }}`) must be either `file` or `s3`.
+  when: "authentik_storage_backend not in ['file', 's3']"
+
+- name: Fail if S3 storage is enabled without a bucket name
+  ansible.builtin.fail:
+    msg: >-
+      You need to define `authentik_storage_s3_bucket_name` when `authentik_storage_backend` is `s3`.
+  when: "authentik_storage_backend == 's3' and authentik_storage_s3_bucket_name == ''"
+
+- name: Fail if both authentik_bootstrap_password and authentik_bootstrap_password_hash are defined
+  ansible.builtin.fail:
+    msg: >-
+      `authentik_bootstrap_password` and `authentik_bootstrap_password_hash` are mutually exclusive. Define only one of them.
+  when: "authentik_bootstrap_password != '' and authentik_bootstrap_password_hash != ''"
+
 - name: Fail if SMTP settings are missing (and SMTP is enabled by setting host)
   ansible.builtin.fail:
     msg: >-
