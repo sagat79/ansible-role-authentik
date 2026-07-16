@@ -63,8 +63,11 @@ Auth protection is available via
 
 - LDAP and RADIUS outposts as optional systemd services
   (`authentik_outpost_ldap_*`, `authentik_outpost_radius_*`).
-- Blueprints support (`authentik_blueprints`) for declarative authentik
+- Blueprints support (`authentik_blueprints_custom`) for declarative authentik
   configuration.
+- Brands support (`authentik_brands`) for per-domain visual settings and
+  defaults, plus `authentik_container_labels_traefik_additional_hostnames`
+  for routing the extra domains.
 - Bootstrap variables (`authentik_bootstrap_*`) for automating the initial
   admin setup.
 - S3 storage backend (`authentik_storage_*`).

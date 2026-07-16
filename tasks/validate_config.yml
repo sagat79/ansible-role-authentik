@@ -84,9 +84,40 @@
 - name: Fail if a blueprint entry is missing a name or content
   ansible.builtin.fail:
     msg: >-
-      Each entry in `authentik_blueprints` must define both `name` and `content`.
+      Each entry in `authentik_blueprints_custom` must define both `name` and `content`.
   when: "item.name is not defined or item.content is not defined or item.name == '' or item.content == ''"
   with_items: "{{ authentik_blueprints }}"
+  loop_control:
+    label: "{{ item.name | default('<unnamed>') }}"
+
+- name: Fail if a brand entry is missing a domain
+  ansible.builtin.fail:
+    msg: >-
+      Each entry in `authentik_brands` must define a `domain`.
+  when: "item.domain is not defined or item.domain == ''"
+  with_items: "{{ authentik_brands }}"
+  loop_control:
+    label: "{{ item.domain | default('<no domain>') }}"
+
+- name: Fail if more than one brand is marked as default
+  ansible.builtin.fail:
+    msg: >-
+      At most one entry in `authentik_brands` may set `default: true`.
+  when: "authentik_brands | selectattr('default', 'defined') | selectattr('default') | list | length > 1"
+
+- name: Warn about brand domains not covered by the Traefik hostnames
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: the brand domain `{{ item.domain }}` does not match
+      `authentik_container_labels_traefik_hostname` or any entry in
+      `authentik_container_labels_traefik_additional_hostnames`.
+      Requests for it will not be routed to authentik by Traefik.
+  when:
+    - authentik_container_labels_traefik_enabled | bool
+    - "(([authentik_container_labels_traefik_hostname] + authentik_container_labels_traefik_additional_hostnames) | select('match', '.*' + (item.domain | regex_escape) + '$') | list | length) == 0"
+  with_items: "{{ authentik_brands }}"
+  loop_control:
+    label: "{{ item.domain | default('<no domain>') }}"
 
 - name: Fail if an enabled authentik outpost has no token defined
   ansible.builtin.fail:

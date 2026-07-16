@@ -26,6 +26,7 @@ Besides installing the authentik server and worker containers, this role support
 - **Bootstrap of the initial admin user** — set `authentik_bootstrap_email` and `authentik_bootstrap_password` (or, better, `authentik_bootstrap_password_hash`) to skip the manual `/if/flow/initial-setup/` flow on a fresh installation.
 - **LDAP and RADIUS outposts** — dedicated outpost containers for the providers that the embedded outpost cannot serve. Proxy / forward-auth use cases are covered by the embedded outpost and do not need a dedicated container.
 - **Blueprints** — declarative configuration of flows, applications, providers etc. from YAML, applied automatically by the worker.
+- **Brands** — per-domain visual settings and defaults (title, logo, favicon), configured declaratively and routed via additional Traefik hostnames.
 - **S3 storage** — store uploaded files (media, reports) in an S3-compatible bucket via `authentik_storage_backend: s3`.
 - **Prometheus metrics** — expose metrics via Traefik, optionally protected with HTTP Basic Auth. Since authentik 2025.8, metrics (port 9300) are served by the **worker** container, so the metrics labels are attached to it.
 - **Tuning knobs** — PostgreSQL connection options, gunicorn workers/threads, background worker processes/threads, cache/session timeouts, trusted proxy CIDRs, GeoIP databases and more.
@@ -58,7 +59,7 @@ devture_systemd_service_manager_services_list_additional:
 ### Blueprints
 
 ```yaml
-authentik_blueprints:
+authentik_blueprints_custom:
   - name: example-app
     content: |
       version: 1
@@ -71,6 +72,28 @@ authentik_blueprints:
           attrs:
             name: Example
 ```
+
+### Brands (per-domain visual settings and defaults)
+
+[Brands](https://docs.goauthentik.io/docs/sys-mgmt/brands) let authentik present different branding
+(title, logo, favicon) and defaults depending on the domain it is accessed under.
+The role applies them declaratively (via an auto-generated blueprint) and can route
+the additional domains through Traefik:
+
+```yaml
+authentik_container_labels_traefik_additional_hostnames:
+  - login.other-project.org
+
+authentik_brands:
+  - domain: sso.example.com
+    branding_title: Example SSO
+  - domain: login.other-project.org
+    branding_title: Other Project
+    branding_logo: /media/public/other-project.svg
+```
+
+Point the DNS records of the additional domains at the same server; when TLS is
+enabled, the certificate resolver obtains certificates for them automatically.
 
 ### Prometheus metrics with Basic Auth
 

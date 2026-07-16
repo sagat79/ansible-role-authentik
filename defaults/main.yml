@@ -221,7 +221,17 @@ authentik_container_labels_traefik_docker_network: "{{ authentik_container_netwo
 authentik_container_labels_traefik_hostname: "{{ authentik_hostname }}"
 # The path prefix must either be `/` or not end with a slash (e.g. `/authentik`).
 authentik_container_labels_traefik_path_prefix: "{{ authentik_path_prefix }}"
-authentik_container_labels_traefik_rule: "Host(`{{ authentik_container_labels_traefik_hostname }}`){% if authentik_container_labels_traefik_path_prefix != '/' %} && PathPrefix(`{{ authentik_container_labels_traefik_path_prefix }}`){% endif %}"
+# A list of additional hostnames at which authentik is served (e.g. brand domains).
+# These are added to the Traefik routing rule alongside authentik_container_labels_traefik_hostname,
+# so requests for them reach the authentik container.
+# When TLS is enabled, the certificate resolver will obtain certificates for these hostnames too.
+# See the `brands` section below for configuring per-domain branding.
+authentik_container_labels_traefik_additional_hostnames: []
+
+# The Host-matching part of the Traefik rule, covering the main hostname and any additional hostnames.
+authentik_container_labels_traefik_host_rule: "{{ '(' if authentik_container_labels_traefik_additional_hostnames | length > 0 else '' }}Host(`{{ ([authentik_container_labels_traefik_hostname] + authentik_container_labels_traefik_additional_hostnames) | join('`) || Host(`') }}`){{ ')' if authentik_container_labels_traefik_additional_hostnames | length > 0 else '' }}"
+
+authentik_container_labels_traefik_rule: "{{ authentik_container_labels_traefik_host_rule }}{% if authentik_container_labels_traefik_path_prefix != '/' %} && PathPrefix(`{{ authentik_container_labels_traefik_path_prefix }}`){% endif %}"
 authentik_container_labels_traefik_priority: 0
 authentik_container_labels_traefik_entrypoints: web-secure
 authentik_container_labels_traefik_tls: "{{ authentik_container_labels_traefik_entrypoints != 'web' }}"
@@ -503,7 +513,7 @@ authentik_listen_metrics: ""
 # list entry are removed.
 #
 # Example:
-# authentik_blueprints:
+# authentik_blueprints_custom:
 #   - name: example-app
 #     content: |
 #       version: 1
@@ -515,13 +525,73 @@ authentik_listen_metrics: ""
 #             slug: example
 #           attrs:
 #             name: Example
-authentik_blueprints: []
+authentik_blueprints: "{{ authentik_blueprints_auto + authentik_blueprints_custom }}"
+authentik_blueprints_auto: "{{ [authentik_brands_blueprint_definition] if authentik_brands | length > 0 else [] }}"
+authentik_blueprints_custom: []
 
 authentik_blueprints_path: "{{ authentik_base_path }}/blueprints"
 
 ########################################################################
 #                                                                      #
 # /blueprints                                                          #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+# brands                                                               #
+#                                                                      #
+########################################################################
+
+# Brands configure visual settings and defaults for the different domains at
+# which authentik is served (matching is done on the Host header).
+# See https://docs.goauthentik.io/docs/sys-mgmt/brands
+#
+# Each entry below is applied declaratively via an automatically generated
+# blueprint (see the `blueprints` section above). Supported keys:
+# - domain (required): the domain (suffix) this brand matches
+# - default: whether this is the fallback brand (at most one entry may set this to true;
+#   authentik ships a built-in default brand which remains as fallback otherwise)
+# - branding_title: the title shown in the web interface
+# - branding_logo: URL/path to the logo (e.g. a file uploaded to media storage, `/media/public/...`)
+# - branding_favicon: URL/path to the favicon
+# - additional_attributes: a dict of extra brand attributes to set
+#   (e.g. flow_authentication, branding_custom_css), merged into the blueprint entry
+#
+# Remember to also add extra brand domains to
+# `authentik_container_labels_traefik_additional_hostnames`, so requests for
+# them are routed to authentik at all.
+#
+# Example:
+# authentik_brands:
+#   - domain: sso.example.com
+#     branding_title: Example SSO
+#   - domain: login.other-project.org
+#     branding_title: Other Project
+#     branding_logo: /media/public/other-project.svg
+authentik_brands: []
+
+# The auto-generated blueprint definition for authentik_brands. Do not override.
+authentik_brands_blueprint_definition:
+  name: ansible-managed-brands
+  content: "{{ {'version': 1, 'metadata': {'name': 'Brands (managed by Ansible)', 'labels': {'blueprints.goauthentik.io/description': 'Generated from the authentik_brands Ansible variable'}}, 'entries': authentik_brands_blueprint_entries} | to_nice_yaml(indent=2) }}"
+
+# The blueprint entries generated from authentik_brands. Do not override.
+authentik_brands_blueprint_entries: |
+  {% set entries = [] %}
+  {% for brand in authentik_brands %}
+  {% set attrs = {'default': brand.default | default(false) | bool} %}
+  {% if brand.branding_title is defined %}{% set attrs = attrs | combine({'branding_title': brand.branding_title}) %}{% endif %}
+  {% if brand.branding_logo is defined %}{% set attrs = attrs | combine({'branding_logo': brand.branding_logo}) %}{% endif %}
+  {% if brand.branding_favicon is defined %}{% set attrs = attrs | combine({'branding_favicon': brand.branding_favicon}) %}{% endif %}
+  {% set attrs = attrs | combine(brand.additional_attributes | default({})) %}
+  {% set _ = entries.append({'model': 'authentik_brands.brand', 'state': 'present', 'identifiers': {'domain': brand.domain}, 'attrs': attrs}) %}
+  {% endfor %}
+  {{ entries }}
+
+########################################################################
+#                                                                      #
+# /brands                                                              #
 #                                                                      #
 ########################################################################
 
