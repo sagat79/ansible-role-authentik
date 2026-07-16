@@ -30,6 +30,7 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
       --read-only \
       --network={{ authentik_container_network }} \
       --env-file={{ authentik_base_path }}/env \
+      --label-file={{ authentik_base_path }}/labels.worker \
       --health-interval={{ authentik_container_health_interval }} \
       --mount type=bind,src={{ authentik_certs_path }},dst=/certs \
       --mount type=bind,src={{ authentik_data_path }},dst=/data \

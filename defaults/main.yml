@@ -60,9 +60,17 @@ authentik_email_port: ""
 authentik_email_username: ""
 authentik_email_password: ""
 authentik_email_from: "noreply@{{ authentik_hostname }}"
+# SMTP connection timeout (in seconds)
+authentik_email_timeout: 10
 
 # Must be one of debug, info, warning, error, critical
 authentik_loglevel: error
+
+# Specify the address(es) the authentik server listens on for HTTP inside the container.
+# Since authentik 2026.5, the default is `[::]:9000`.
+# On IPv4-only hosts (or container networks without IPv6), set this to e.g. `0.0.0.0:9000`.
+# An empty value keeps authentik's own default.
+authentik_listen_http: ""
 
 authentik_environment_variables_authentik_error_reporting_enabled: false
 
