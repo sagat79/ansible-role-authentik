@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 MASH project contributors
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # План за подобряване на ansible-role-authentik
 
 Дата: 2026-07-15

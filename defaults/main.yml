@@ -468,9 +468,60 @@ authentik_metrics_container_labels_traefik_entrypoints: web-secure
 authentik_metrics_container_labels_traefik_tls: "{{ authentik_metrics_container_labels_traefik_entrypoints != 'web' }}"
 authentik_metrics_container_labels_traefik_tls_certResolver: default  # noqa var-naming
 
+# Controls whether the metrics endpoint (when exposed via Traefik) is protected with HTTP Basic Auth.
+authentik_metrics_container_labels_traefik_basicauth_enabled: false
+# htpasswd-style user:hashed-password pairs, comma-separated for multiple users.
+# Generate with: htpasswd -nb prometheus SOME_PASSWORD
+authentik_metrics_container_labels_traefik_basicauth_users: ""
+
+# Specify the address the worker listens on for Prometheus metrics inside the container.
+# Since authentik 2026.5, the default is `[::]:9300`.
+# On IPv4-only container networks, set this to e.g. `0.0.0.0:9300`.
+# An empty value keeps authentik's own default.
+authentik_listen_metrics: ""
+
 ########################################################################
 #                                                                      #
 # /metrics                                                             #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+# blueprints                                                           #
+#                                                                      #
+########################################################################
+
+# Blueprints allow declarative configuration of authentik (flows, applications,
+# providers, users, ...) from YAML files, instead of clicking through the admin UI.
+# See https://docs.goauthentik.io/docs/customize/blueprints/
+#
+# Each list entry below is written to `<name>.yaml` in authentik_blueprints_path,
+# which is mounted at `/blueprints/custom` in the worker container.
+# authentik discovers new/changed files automatically (no restart needed).
+# Files in authentik_blueprints_path that no longer have a corresponding
+# list entry are removed.
+#
+# Example:
+# authentik_blueprints:
+#   - name: example-app
+#     content: |
+#       version: 1
+#       metadata:
+#         name: Example application
+#       entries:
+#         - model: authentik_core.application
+#           identifiers:
+#             slug: example
+#           attrs:
+#             name: Example
+authentik_blueprints: []
+
+authentik_blueprints_path: "{{ authentik_base_path }}/blueprints"
+
+########################################################################
+#                                                                      #
+# /blueprints                                                          #
 #                                                                      #
 ########################################################################
 

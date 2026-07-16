@@ -74,6 +74,20 @@
       `authentik_bootstrap_password` and `authentik_bootstrap_password_hash` are mutually exclusive. Define only one of them.
   when: "authentik_bootstrap_password != '' and authentik_bootstrap_password_hash != ''"
 
+- name: Fail if metrics Basic Auth is enabled without users
+  ansible.builtin.fail:
+    msg: >-
+      You need to define `authentik_metrics_container_labels_traefik_basicauth_users` when
+      `authentik_metrics_container_labels_traefik_basicauth_enabled` is enabled.
+  when: "authentik_metrics_container_labels_traefik_basicauth_enabled | bool and authentik_metrics_container_labels_traefik_basicauth_users == ''"
+
+- name: Fail if a blueprint entry is missing a name or content
+  ansible.builtin.fail:
+    msg: >-
+      Each entry in `authentik_blueprints` must define both `name` and `content`.
+  when: "item.name is not defined or item.content is not defined or item.name == '' or item.content == ''"
+  with_items: "{{ authentik_blueprints }}"
+
 - name: Fail if an enabled authentik outpost has no token defined
   ansible.builtin.fail:
     msg: >-

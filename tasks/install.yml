@@ -16,6 +16,7 @@
     - "{{ authentik_certs_path }}"
     - "{{ authentik_custom_templates_path }}"
     - "{{ authentik_data_path }}"
+    - "{{ authentik_blueprints_path }}"
 
 - name: Check if old media directory exists at old default location
   ansible.builtin.stat:
@@ -111,6 +112,32 @@
     - src: "{{ role_path }}/templates/systemd/authentik-worker.service.j2"
       dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ authentik_worker_identifier }}.service"
   register: authentik_systemd_services_result
+
+- name: Ensure authentik blueprint files installed
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ authentik_blueprints_path }}/{{ item.name }}.yaml"
+    mode: "0640"
+    owner: "{{ authentik_uid }}"
+    group: "{{ authentik_gid }}"
+  with_items: "{{ authentik_blueprints }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Find unmanaged blueprint files
+  ansible.builtin.find:
+    paths: "{{ authentik_blueprints_path }}"
+    patterns: "*.yaml"
+  register: authentik_blueprints_files_result
+
+- name: Ensure unmanaged blueprint files are removed
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  when: "(item.path | basename | regex_replace('\\.yaml$', '')) not in (authentik_blueprints | map(attribute='name') | list)"
+  with_items: "{{ authentik_blueprints_files_result.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
 
 - name: Ensure authentik outpost environment files installed
   ansible.builtin.template:

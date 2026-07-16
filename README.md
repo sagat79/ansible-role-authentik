@@ -24,10 +24,62 @@ Check [`defaults/main.yml`](defaults/main.yml) for the full list of supported op
 Besides installing the authentik server and worker containers, this role supports:
 
 - **Bootstrap of the initial admin user** — set `authentik_bootstrap_email` and `authentik_bootstrap_password` (or, better, `authentik_bootstrap_password_hash`) to skip the manual `/if/flow/initial-setup/` flow on a fresh installation.
-- **LDAP and RADIUS outposts** — dedicated outpost containers for the providers that the embedded outpost cannot serve. See the `outposts` section in [`defaults/main.yml`](defaults/main.yml). Proxy / forward-auth use cases are covered by the embedded outpost and do not need a dedicated container.
+- **LDAP and RADIUS outposts** — dedicated outpost containers for the providers that the embedded outpost cannot serve. Proxy / forward-auth use cases are covered by the embedded outpost and do not need a dedicated container.
+- **Blueprints** — declarative configuration of flows, applications, providers etc. from YAML, applied automatically by the worker.
 - **S3 storage** — store uploaded files (media, reports) in an S3-compatible bucket via `authentik_storage_backend: s3`.
-- **Prometheus metrics** — enable `authentik_metrics_enabled` to expose metrics via Traefik. Since authentik 2025.8, metrics (port 9300) are served by the **worker** container, so the metrics labels are attached to it.
+- **Prometheus metrics** — expose metrics via Traefik, optionally protected with HTTP Basic Auth. Since authentik 2025.8, metrics (port 9300) are served by the **worker** container, so the metrics labels are attached to it.
 - **Tuning knobs** — PostgreSQL connection options, gunicorn workers/threads, background worker processes/threads, cache/session timeouts, trusted proxy CIDRs, GeoIP databases and more.
+
+## Usage examples
+
+The examples below use `vars.yml` syntax as used by the MASH playbook. Check [`defaults/main.yml`](defaults/main.yml) for all options and their documentation.
+
+### LDAP / RADIUS outpost
+
+First create an outpost of the corresponding type in the authentik admin interface (**Applications → Outposts**) and copy its token (**View Deployment Info**). Then:
+
+```yaml
+authentik_outpost_ldap_enabled: true
+authentik_outpost_ldap_token: YOUR_OUTPOST_TOKEN
+# Optionally publish the LDAP/LDAPS ports on the host:
+authentik_outpost_ldap_container_ldap_host_bind_port: "389"
+authentik_outpost_ldap_container_ldaps_host_bind_port: "636"
+```
+
+If your playbook manages services via a systemd service manager role (like the MASH playbook does), also register the outpost service, e.g.:
+
+```yaml
+devture_systemd_service_manager_services_list_additional:
+  - name: mash-authentik-outpost-ldap.service
+    priority: 2500
+    groups: [mash, authentik]
+```
+
+### Blueprints
+
+```yaml
+authentik_blueprints:
+  - name: example-app
+    content: |
+      version: 1
+      metadata:
+        name: Example application
+      entries:
+        - model: authentik_core.application
+          identifiers:
+            slug: example
+          attrs:
+            name: Example
+```
+
+### Prometheus metrics with Basic Auth
+
+```yaml
+authentik_metrics_enabled: true
+authentik_metrics_container_labels_traefik_basicauth_enabled: true
+# Generate with: htpasswd -nb prometheus SOME_PASSWORD
+authentik_metrics_container_labels_traefik_basicauth_users: "prometheus:$apr1$..."
+```
 
 ### Note for IPv4-only hosts
 
@@ -35,6 +87,7 @@ Since authentik 2026.5, the server listens on `[::]` by default. If your contain
 
 ```yaml
 authentik_listen_http: 0.0.0.0:9000
+authentik_listen_metrics: 0.0.0.0:9300
 ```
 
 ## Development

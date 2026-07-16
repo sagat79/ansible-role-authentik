@@ -23,6 +23,10 @@ traefik.docker.network={{ authentik_container_labels_traefik_docker_network }}
 {% endif %}
 {% endif %}
 
+{% if authentik_metrics_container_labels_traefik_basicauth_enabled %}
+traefik.http.middlewares.{{ authentik_identifier }}-metrics-basic-auth.basicauth.users={{ authentik_metrics_container_labels_traefik_basicauth_users }}
+traefik.http.routers.{{ authentik_identifier }}-metrics.middlewares={{ authentik_identifier }}-metrics-basic-auth
+{% endif %}
 traefik.http.routers.{{ authentik_identifier }}-metrics.rule={{ authentik_metrics_container_labels_traefik_rule }}
 traefik.http.routers.{{ authentik_identifier }}-metrics.service={{ authentik_identifier }}-metrics
 traefik.http.routers.{{ authentik_identifier }}-metrics.entrypoints={{ authentik_metrics_container_labels_traefik_entrypoints }}
