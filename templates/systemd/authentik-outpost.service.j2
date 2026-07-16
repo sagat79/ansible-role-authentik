@@ -14,8 +14,27 @@ DefaultDependencies=no
 
 [Service]
 Type=simple
-ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} {{ authentik_outpost.identifier }} 2>/dev/null || true'
-ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm {{ authentik_outpost.identifier }} 2>/dev/null || true'
+{# The same deterministic pre-start cleanup loop the server and worker units use. #}
+{% set cleanup_command %}
+i=0;
+while [ "$i" -lt {{ devture_systemd_docker_base_container_cleanup_timeout_seconds }} ]; do
+{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} {{ authentik_outpost.identifier }} >/dev/null 2>&1 || true;
+{{ devture_systemd_docker_base_host_command_docker }} rm -f {{ authentik_outpost.identifier }} >/dev/null 2>&1 || true;
+if {{ devture_systemd_docker_base_host_command_docker }} container inspect {{ authentik_outpost.identifier }} >/dev/null 2>&1; then
+i=$((i + 1));
+sleep {{ devture_systemd_docker_base_container_cleanup_retry_delay_seconds }};
+continue;
+fi;
+if {{ devture_systemd_docker_base_host_command_docker }} info >/dev/null 2>&1; then
+exit 0;
+fi;
+echo "Failed to query Docker daemon while cleaning up {{ authentik_outpost.identifier }}" >&2;
+exit 1;
+done;
+echo "Failed to remove stale container {{ authentik_outpost.identifier }} after {{ devture_systemd_docker_base_container_cleanup_timeout_seconds }} attempts" >&2;
+exit 1
+{% endset %}
+ExecStartPre={{ devture_systemd_docker_base_host_command_sh }} -c '{{ cleanup_command | trim | replace("\n", " ") }}'
 
 ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
       --rm \

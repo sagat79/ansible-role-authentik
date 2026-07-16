@@ -60,25 +60,27 @@
     - labels.worker
   register: authentik_support_files_result
 
-- name: Ensure authentik container image is pulled via community.docker.docker_image_pull
+- name: Ensure authentik container images are pulled via community.docker.docker_image_pull
   when: devture_systemd_docker_base_container_image_pull_method == 'ansible-module'
   community.docker.docker_image_pull:
-    name: "{{ authentik_container_image }}"
+    name: "{{ item }}"
     pull: always
   register: authentik_container_image_pull_result_ansible_module
   retries: "{{ devture_playbook_help_container_retries_count }}"
   delay: "{{ devture_playbook_help_container_retries_delay }}"
   until: authentik_container_image_pull_result_ansible_module is not failed
+  with_items: "{{ authentik_container_images_to_pull }}"
 
-- name: Ensure authentik container image is pulled via ansible.builtin.command
+- name: Ensure authentik container images are pulled via ansible.builtin.command
   when: devture_systemd_docker_base_container_image_pull_method == 'command'
   ansible.builtin.command:
-    cmd: "{{ devture_systemd_docker_base_host_command_docker }} pull {{ authentik_container_image }}"
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} pull {{ item }}"
   register: authentik_container_image_pull_result_command
   retries: "{{ devture_playbook_help_container_retries_count }}"
   delay: "{{ devture_playbook_help_container_retries_delay }}"
   until: authentik_container_image_pull_result_command is not failed
   changed_when: "'Downloaded newer image' in authentik_container_image_pull_result_command.stdout"
+  with_items: "{{ authentik_container_images_to_pull }}"
 
 - name: Ensure authentik container network is created via community.docker.docker_network
   when: devture_systemd_docker_base_container_network_creation_method == 'ansible-module'
@@ -154,32 +156,6 @@
     label: "{{ item.type }}"
   register: authentik_outpost_env_files_result
 
-- name: Ensure authentik outpost container images are pulled via community.docker.docker_image_pull
-  when: devture_systemd_docker_base_container_image_pull_method == 'ansible-module' and item.enabled | bool
-  community.docker.docker_image_pull:
-    name: "{{ item.container_image }}"
-    pull: always
-  register: authentik_outpost_image_pull_result_ansible_module
-  retries: "{{ devture_playbook_help_container_retries_count }}"
-  delay: "{{ devture_playbook_help_container_retries_delay }}"
-  until: authentik_outpost_image_pull_result_ansible_module is not failed
-  with_items: "{{ authentik_outposts_definitions }}"
-  loop_control:
-    label: "{{ item.type }}"
-
-- name: Ensure authentik outpost container images are pulled via ansible.builtin.command
-  when: devture_systemd_docker_base_container_image_pull_method == 'command' and item.enabled | bool
-  ansible.builtin.command:
-    cmd: "{{ devture_systemd_docker_base_host_command_docker }} pull {{ item.container_image }}"
-  register: authentik_outpost_image_pull_result_command
-  retries: "{{ devture_playbook_help_container_retries_count }}"
-  delay: "{{ devture_playbook_help_container_retries_delay }}"
-  until: authentik_outpost_image_pull_result_command is not failed
-  changed_when: "'Downloaded newer image' in authentik_outpost_image_pull_result_command.stdout"
-  with_items: "{{ authentik_outposts_definitions }}"
-  loop_control:
-    label: "{{ item.type }}"
-
 - name: Ensure authentik outpost systemd services are present
   ansible.builtin.template:
     src: "{{ role_path }}/templates/systemd/authentik-outpost.service.j2"
@@ -230,6 +206,6 @@
       {{
         authentik_outpost_env_files_result.changed | default(false)
         or authentik_outpost_systemd_services_result.changed | default(false)
-        or authentik_outpost_image_pull_result_ansible_module.changed | default(false)
-        or authentik_outpost_image_pull_result_command.changed | default(false)
+        or authentik_container_image_pull_result_ansible_module.changed | default(false)
+        or authentik_container_image_pull_result_command.changed | default(false)
       }}

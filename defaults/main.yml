@@ -39,6 +39,10 @@ authentik_container_image_registry_prefix_upstream_default: ghcr.io/
 
 authentik_container_network: "{{ authentik_identifier }}"
 
+# The container images the role pulls: the authentik server/worker image
+# plus the images of any enabled outposts. Do not override.
+authentik_container_images_to_pull: "{{ [authentik_container_image] + (authentik_outposts_definitions | selectattr('enabled') | map(attribute='container_image') | list) }}"
+
 authentik_secret_key: ""
 
 authentik_database_hostname: ""
@@ -378,9 +382,6 @@ authentik_server_container_cleanup_command: |
   echo "Failed to remove stale container {{ authentik_server_identifier }} after {{ authentik_server_container_cleanup_timeout_seconds }} attempts" >&2;
   exit 1
 
-# Additional environment variables.
-authentik_server_variables_additional_variables: ""
-
 ########################################################################
 #                                                                      #
 # /server                                                              #
@@ -402,7 +403,8 @@ authentik_worker_version: "{{ authentik_version }}"
 authentik_worker_processes: ""
 authentik_worker_threads: ""
 
-# The base container network. It will be auto-created by this role if it doesn't exist already.
+# The container network of the worker. Defaults to the main authentik container
+# network (which this role creates). If you override it, make sure the network exists.
 authentik_worker_container_network: "{{ authentik_container_network }}"
 
 # A list of additional container networks that the container would be connected to.
@@ -456,8 +458,6 @@ authentik_worker_container_cleanup_command: |
   done;
   echo "Failed to remove stale container {{ authentik_worker_identifier }} after {{ authentik_worker_container_cleanup_timeout_seconds }} attempts" >&2;
   exit 1
-
-authentik_worker_variables_additional_variables: ""
 
 ########################################################################
 #                                                                      #

@@ -77,3 +77,7 @@ Auth protection is available via
 - Bug fixes: `authentik_loglevel` and `authentik_database_port` are now
   actually passed to the container; the SMTP timeout is configurable via
   `authentik_email_timeout`.
+- Removed the dead variables `authentik_server_variables_additional_variables`
+  and `authentik_worker_variables_additional_variables` — they were defined
+  but never applied. Use `authentik_environment_variables_additional_variables`
+  instead (the configuration validation will point at any leftovers).
