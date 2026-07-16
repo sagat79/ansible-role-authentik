@@ -76,7 +76,7 @@ upstream v2026.5.2-0** и върху него наслагваме локалн�
 
 ---
 
-## Етап 1 — Поправка на бъгове, които ги има и в upstream (кандидати и за PR нагоре)
+## Етап 1 — Поправка на бъгове, които ги има и в upstream (поправят се в това репо)
 
 1. **`authentik_loglevel` е мъртва променлива** — дефинирана в defaults, но
    `AUTHENTIK_LOG_LEVEL` никога не се записва в env. Да се добави в `env.j2`.
@@ -132,17 +132,13 @@ upstream v2026.5.2-0** и върху него наслагваме локалн�
 
 ---
 
-## Етап 4 — MASH интеграция и документация
+## Етап 4 — Документация (само в това репо)
 
-1. PR към mash-playbook при нужда: wiring-ът в `templates/group_vars_mash_servers`
-   вече е без Redis/Valkey за authentik — да се провери, че нищо не подава
-   `authentik_config_redis_*` (иначе deprecation проверката ще гърми);
-   забелязан е и дребен бъг в hubsite секцията (`priority` реферира
-   `hubsite_service_adguard_home_priority`).
-2. Подобряване на `docs/services/authentik.md` в mash-playbook: примери за
-   forward auth през Traefik, LDAP outpost, bootstrap променливи.
-3. README на ролята по MASH стандарт + CHANGELOG записи за всички breaking
+1. README на ролята по MASH стандарт + CHANGELOG записи за всички breaking
    changes (Redis, /data, ъпгрейд път).
+2. Примери в README за употреба с MASH playbook: forward auth през Traefik,
+   LDAP/RADIUS outposts, bootstrap променливи. Всички промени остават в това
+   репо — не се предвиждат PR-и към mash-playbook или upstream ролята.
 
 ---
 
@@ -157,6 +153,6 @@ upstream v2026.5.2-0** и върху него наслагваме локалн�
 ## Препоръчан ред на изпълнение
 
 1. Етап 0 (синхронизация) — незабавно; всичко друго стъпва на него.
-2. Етап 1 (бъгове) — дребни, бързи, кандидати за upstream PR-и.
+2. Етап 1 (бъгове) — дребни и бързи поправки.
 3. Етап 2 + Етап 3.1 (outposts) — основната нова функционалност.
 4. Етапи 3.2–5 — по приоритет.
