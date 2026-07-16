@@ -14,15 +14,15 @@ traefik.docker.network={{ authentik_container_labels_traefik_docker_network }}
 
 {% set middlewares = [] %}
 
+{#
+When serving under a path prefix, the request is passed to authentik with the
+prefix intact (no strip-prefix middleware), because the role configures
+authentik itself for subpath serving via `AUTHENTIK_WEB__PATH` (see env.j2).
+#}
 {% if authentik_container_labels_traefik_path_prefix != '/' %}
 traefik.http.middlewares.{{ authentik_identifier }}-slashless-redirect.redirectregex.regex=^({{ authentik_container_labels_traefik_path_prefix | quote }})$
 traefik.http.middlewares.{{ authentik_identifier }}-slashless-redirect.redirectregex.replacement=${1}/
 {% set middlewares = middlewares + [authentik_identifier + '-slashless-redirect'] %}
-{% endif %}
-
-{% if authentik_container_labels_traefik_path_prefix != '/' %}
-traefik.http.middlewares.{{ authentik_identifier }}-strip-prefix.stripprefix.prefixes={{ authentik_container_labels_traefik_path_prefix }}
-{% set middlewares = middlewares + [authentik_identifier + '-strip-prefix'] %}
 {% endif %}
 
 {% if authentik_container_labels_traefik_additional_request_headers.keys() | length > 0 %}
