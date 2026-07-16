@@ -76,6 +76,7 @@ upstream v2026.5.2-0** и върху него наслагваме локалн�
    поправен `meta/main.yml` (текущото описание е копирано от музикална услуга).
 
 Стъпки:
+
 - `git remote add upstream …/mother-of-all-self-hosting/ansible-role-authentik`
 - нов бранч от `upstream/main`; пренасяне на евентуални локални специфики;
 - тагване по MASH конвенция `v2026.5.2-0` (autotag вече е наличен).
@@ -104,7 +105,7 @@ upstream v2026.5.2-0** и върху него наслагваме локалн�
 `authentik_environment_variables_additional_variables`):
 
 | Група | Променливи |
-|---|---|
+| --- | --- |
 | PostgreSQL | `PORT`, `CONN_MAX_AGE`, `CONN_HEALTH_CHECKS`, `DISABLE_SERVER_SIDE_CURSORS`, `DEFAULT_SCHEMA`, read replicas |
 | Web | `WEB__WORKERS`, `WEB__THREADS`, `WEB__PATH` (**задължителен при `authentik_path_prefix != '/'`** — да се подава автоматично!) |
 | Worker | `WORKER__PROCESSES`, `WORKER__THREADS` |
