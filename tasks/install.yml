@@ -112,6 +112,79 @@
       dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ authentik_worker_identifier }}.service"
   register: authentik_systemd_services_result
 
+- name: Ensure authentik outpost environment files installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/env.outpost.j2"
+    dest: "{{ authentik_base_path }}/env.outpost-{{ item.type }}"
+    mode: "0640"
+    owner: "{{ authentik_uid }}"
+    group: "{{ authentik_gid }}"
+  vars:
+    authentik_outpost: "{{ item }}"
+  when: item.enabled | bool
+  with_items: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    label: "{{ item.type }}"
+
+- name: Ensure authentik outpost container images are pulled via community.docker.docker_image_pull
+  when: devture_systemd_docker_base_container_image_pull_method == 'ansible-module' and item.enabled | bool
+  community.docker.docker_image_pull:
+    name: "{{ item.container_image }}"
+    pull: always
+  register: authentik_outpost_image_pull_result_ansible_module
+  retries: "{{ devture_playbook_help_container_retries_count }}"
+  delay: "{{ devture_playbook_help_container_retries_delay }}"
+  until: authentik_outpost_image_pull_result_ansible_module is not failed
+  with_items: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    label: "{{ item.type }}"
+
+- name: Ensure authentik outpost container images are pulled via ansible.builtin.command
+  when: devture_systemd_docker_base_container_image_pull_method == 'command' and item.enabled | bool
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} pull {{ item.container_image }}"
+  register: authentik_outpost_image_pull_result_command
+  retries: "{{ devture_playbook_help_container_retries_count }}"
+  delay: "{{ devture_playbook_help_container_retries_delay }}"
+  until: authentik_outpost_image_pull_result_command is not failed
+  changed_when: "'Downloaded newer image' in authentik_outpost_image_pull_result_command.stdout"
+  with_items: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    label: "{{ item.type }}"
+
+- name: Ensure authentik outpost systemd services are present
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/systemd/authentik-outpost.service.j2"
+    dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ item.identifier }}.service"
+    mode: "0644"
+  vars:
+    authentik_outpost: "{{ item }}"
+  when: item.enabled | bool
+  with_items: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    label: "{{ item.type }}"
+
+- name: Ensure disabled authentik outpost systemd services are removed
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/remove_service.yml"
+  when: not outpost_definition.enabled | bool
+  loop: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    loop_var: outpost_definition
+    label: "{{ outpost_definition.type }}"
+  vars:
+    item:
+      service: "{{ outpost_definition.identifier }}.service"
+      path: "{{ devture_systemd_docker_base_systemd_path }}/{{ outpost_definition.identifier }}.service"
+
+- name: Ensure disabled authentik outpost environment files are removed
+  ansible.builtin.file:
+    path: "{{ authentik_base_path }}/env.outpost-{{ item.type }}"
+    state: absent
+  when: not item.enabled | bool
+  with_items: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    label: "{{ item.type }}"
+
 - name: Determine whether authentik needs a restart
   ansible.builtin.set_fact:
     authentik_restart_necessary: >-

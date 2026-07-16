@@ -470,3 +470,139 @@ authentik_metrics_container_labels_traefik_tls_certResolver: default  # noqa var
 # /metrics                                                             #
 #                                                                      #
 ########################################################################
+
+########################################################################
+#                                                                      #
+# outposts                                                             #
+#                                                                      #
+########################################################################
+
+# The embedded outpost (part of the authentik server) already handles
+# proxy / forward-auth use cases.
+# LDAP and RADIUS providers, however, require dedicated outposts.
+# This role can run those as additional containers (systemd services).
+#
+# To use an outpost:
+# 1. enable it below and run the playbook
+# 2. create an outpost of the corresponding type in the authentik admin
+#    interface (Applications -> Outposts)
+# 3. copy its token (View Deployment Info) into the corresponding `_token` variable
+# 4. re-run the playbook
+#
+# The outpost containers run the same version as the authentik instance,
+# as required by authentik.
+#
+# Note: the role only installs the systemd services. If your playbook uses a
+# systemd service manager role (like the MASH playbook does), remember to add
+# the outpost services to its list of managed services.
+
+authentik_outpost_ldap_enabled: false
+
+authentik_outpost_ldap_identifier: "{{ authentik_identifier }}-outpost-ldap"
+
+authentik_outpost_ldap_container_image: "{{ authentik_container_image_registry_prefix }}goauthentik/ldap:{{ authentik_version }}"
+
+# The URL at which the outpost can reach the authentik server.
+authentik_outpost_ldap_authentik_host: "https://{{ authentik_hostname }}"
+
+# Set to true to skip TLS certificate validation for connections to authentik_outpost_ldap_authentik_host
+authentik_outpost_ldap_authentik_insecure: false
+
+# The outpost token, as shown in the authentik admin interface (View Deployment Info)
+authentik_outpost_ldap_token: ""
+
+# Specify how the container publishes its LDAP (3389) and LDAPS (6636) ports.
+# Takes an "<ip>:<port>" or "<port>" value (e.g. "389"), or an empty string to not expose.
+authentik_outpost_ldap_container_ldap_host_bind_port: ""
+authentik_outpost_ldap_container_ldaps_host_bind_port: ""
+
+authentik_outpost_ldap_container_network: "{{ authentik_container_network }}"
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+authentik_outpost_ldap_container_additional_networks: []
+
+# List of systemd services that the LDAP outpost systemd service depends on
+authentik_outpost_ldap_systemd_required_services_list: "{{ authentik_outpost_ldap_systemd_required_services_list_default + authentik_outpost_ldap_systemd_required_services_list_custom }}"
+authentik_outpost_ldap_systemd_required_services_list_default: |
+  {{
+    ([devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [])
+    +
+    [(authentik_server_identifier + '.service')]
+  }}
+authentik_outpost_ldap_systemd_required_services_list_custom: []
+
+# Additional environment variables for the LDAP outpost container
+authentik_outpost_ldap_environment_variables_additional_variables: ""
+
+authentik_outpost_radius_enabled: false
+
+authentik_outpost_radius_identifier: "{{ authentik_identifier }}-outpost-radius"
+
+authentik_outpost_radius_container_image: "{{ authentik_container_image_registry_prefix }}goauthentik/radius:{{ authentik_version }}"
+
+# The URL at which the outpost can reach the authentik server.
+authentik_outpost_radius_authentik_host: "https://{{ authentik_hostname }}"
+
+# Set to true to skip TLS certificate validation for connections to authentik_outpost_radius_authentik_host
+authentik_outpost_radius_authentik_insecure: false
+
+# The outpost token, as shown in the authentik admin interface (View Deployment Info)
+authentik_outpost_radius_token: ""
+
+# Specify how the container publishes its RADIUS (1812/udp) port.
+# Takes an "<ip>:<port>" or "<port>" value (e.g. "1812"), or an empty string to not expose.
+authentik_outpost_radius_container_radius_host_bind_port: ""
+
+authentik_outpost_radius_container_network: "{{ authentik_container_network }}"
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+authentik_outpost_radius_container_additional_networks: []
+
+# List of systemd services that the RADIUS outpost systemd service depends on
+authentik_outpost_radius_systemd_required_services_list: "{{ authentik_outpost_radius_systemd_required_services_list_default + authentik_outpost_radius_systemd_required_services_list_custom }}"
+authentik_outpost_radius_systemd_required_services_list_default: |
+  {{
+    ([devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [])
+    +
+    [(authentik_server_identifier + '.service')]
+  }}
+authentik_outpost_radius_systemd_required_services_list_custom: []
+
+# Additional environment variables for the RADIUS outpost container
+authentik_outpost_radius_environment_variables_additional_variables: ""
+
+# authentik_outposts_definitions is the list of outposts this role manages.
+# It is computed from the settings above. Do not override it.
+authentik_outposts_definitions:
+  - type: ldap
+    enabled: "{{ authentik_outpost_ldap_enabled }}"
+    identifier: "{{ authentik_outpost_ldap_identifier }}"
+    container_image: "{{ authentik_outpost_ldap_container_image }}"
+    authentik_host: "{{ authentik_outpost_ldap_authentik_host }}"
+    authentik_insecure: "{{ authentik_outpost_ldap_authentik_insecure }}"
+    token: "{{ authentik_outpost_ldap_token }}"
+    container_network: "{{ authentik_outpost_ldap_container_network }}"
+    container_additional_networks: "{{ authentik_outpost_ldap_container_additional_networks }}"
+    systemd_required_services_list: "{{ authentik_outpost_ldap_systemd_required_services_list }}"
+    port_bindings: "{{ ([{'host_port': authentik_outpost_ldap_container_ldap_host_bind_port, 'container_port': '3389'}] if authentik_outpost_ldap_container_ldap_host_bind_port else []) + ([{'host_port': authentik_outpost_ldap_container_ldaps_host_bind_port, 'container_port': '6636'}] if authentik_outpost_ldap_container_ldaps_host_bind_port else []) }}"
+    additional_variables: "{{ authentik_outpost_ldap_environment_variables_additional_variables }}"
+  - type: radius
+    enabled: "{{ authentik_outpost_radius_enabled }}"
+    identifier: "{{ authentik_outpost_radius_identifier }}"
+    container_image: "{{ authentik_outpost_radius_container_image }}"
+    authentik_host: "{{ authentik_outpost_radius_authentik_host }}"
+    authentik_insecure: "{{ authentik_outpost_radius_authentik_insecure }}"
+    token: "{{ authentik_outpost_radius_token }}"
+    container_network: "{{ authentik_outpost_radius_container_network }}"
+    container_additional_networks: "{{ authentik_outpost_radius_container_additional_networks }}"
+    systemd_required_services_list: "{{ authentik_outpost_radius_systemd_required_services_list }}"
+    port_bindings: "{{ ([{'host_port': authentik_outpost_radius_container_radius_host_bind_port, 'container_port': '1812/udp'}] if authentik_outpost_radius_container_radius_host_bind_port else []) }}"
+    additional_variables: "{{ authentik_outpost_radius_environment_variables_additional_variables }}"
+
+########################################################################
+#                                                                      #
+# /outposts                                                            #
+#                                                                      #
+########################################################################

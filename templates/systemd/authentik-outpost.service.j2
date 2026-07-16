@@ -1,0 +1,49 @@
+{#
+SPDX-FileCopyrightText: 2026 MASH project contributors
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+#}
+
+[Unit]
+Description=authentik {{ authentik_outpost.type | upper }} outpost ({{ authentik_outpost.identifier }})
+{% for service in authentik_outpost.systemd_required_services_list %}
+Requires={{ service }}
+After={{ service }}
+{% endfor %}
+DefaultDependencies=no
+
+[Service]
+Type=simple
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} {{ authentik_outpost.identifier }} 2>/dev/null || true'
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm {{ authentik_outpost.identifier }} 2>/dev/null || true'
+
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
+      --rm \
+      --name={{ authentik_outpost.identifier }} \
+      --log-driver=none \
+      --user={{ authentik_uid }}:{{ authentik_gid }} \
+      --cap-drop=ALL \
+      --read-only \
+      --network={{ authentik_outpost.container_network }} \
+      {% for binding in authentik_outpost.port_bindings %}
+      -p {{ binding.host_port }}:{{ binding.container_port }} \
+      {% endfor %}
+      --env-file={{ authentik_base_path }}/env.outpost-{{ authentik_outpost.type }} \
+      --tmpfs=/tmp:rw,noexec,nosuid,size=64m \
+      {{ authentik_outpost.container_image }}
+
+{% for network in authentik_outpost.container_additional_networks %}
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} {{ authentik_outpost.identifier }}
+{% endfor %}
+
+ExecStart={{ devture_systemd_docker_base_host_command_docker }} start --attach {{ authentik_outpost.identifier }}
+
+ExecStop=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} {{ authentik_outpost.identifier }} 2>/dev/null || true'
+ExecStop=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm {{ authentik_outpost.identifier }} 2>/dev/null || true'
+
+Restart=always
+RestartSec=30
+SyslogIdentifier={{ authentik_outpost.identifier }}
+
+[Install]
+WantedBy=multi-user.target

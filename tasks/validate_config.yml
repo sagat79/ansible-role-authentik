@@ -68,6 +68,17 @@
       `authentik_bootstrap_password` and `authentik_bootstrap_password_hash` are mutually exclusive. Define only one of them.
   when: "authentik_bootstrap_password != '' and authentik_bootstrap_password_hash != ''"
 
+- name: Fail if an enabled authentik outpost has no token defined
+  ansible.builtin.fail:
+    msg: >-
+      You need to define `authentik_outpost_{{ item.type }}_token` to run the {{ item.type | upper }} outpost.
+      Create an outpost in the authentik admin interface (Applications -> Outposts)
+      and copy its token from `View Deployment Info`.
+  when: "item.enabled | bool and item.token == ''"
+  with_items: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    label: "{{ item.type }}"
+
 - name: Fail if SMTP settings are missing (and SMTP is enabled by setting host)
   ansible.builtin.fail:
     msg: >-
