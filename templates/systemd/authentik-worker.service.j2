@@ -28,7 +28,7 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
       --user={{ authentik_uid }}:{{ authentik_gid }} \
       --cap-drop=ALL \
       --read-only \
-      --network={{ authentik_container_network }} \
+      --network={{ authentik_worker_container_network }} \
       --env-file={{ authentik_base_path }}/env \
       --label-file={{ authentik_base_path }}/labels.worker \
       --health-interval={{ authentik_container_health_interval }} \
@@ -41,7 +41,7 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
       {% endfor %}
       {{ authentik_container_image }} worker
 
-{% for network in authentik_container_additional_networks %}
+{% for network in authentik_worker_container_additional_networks %}
 ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} {{ authentik_worker_identifier }}
 {% endfor %}
 

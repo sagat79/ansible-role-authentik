@@ -44,6 +44,12 @@
     - authentik_database_password
     - authentik_secret_key
 
+- name: Fail if authentik_path_prefix ends with a slash
+  ansible.builtin.fail:
+    msg: >-
+      authentik_path_prefix (`{{ authentik_path_prefix }}`) must either be `/` or not end with a slash (e.g. `/authentik`).
+  when: "authentik_path_prefix != '/' and authentik_path_prefix[-1] == '/'"
+
 - name: Fail if authentik_loglevel is invalid
   ansible.builtin.fail:
     msg: >-
@@ -107,3 +113,15 @@
         msg: >-
           authentik_container_labels_traefik_path_prefix (`{{ authentik_container_labels_traefik_path_prefix }}`) must either be `/` or not end with a slash (e.g. `/authentik`).
       when: "authentik_container_labels_traefik_path_prefix != '/' and authentik_container_labels_traefik_path_prefix[-1] == '/'"
+
+    # The request is passed to authentik with the path prefix intact and authentik
+    # is configured for subpath serving via `AUTHENTIK_WEB__PATH` (derived from
+    # `authentik_path_prefix`), so the Traefik routing prefix must match it.
+    - name: Fail if authentik_container_labels_traefik_path_prefix does not match authentik_path_prefix
+      ansible.builtin.fail:
+        msg: >-
+          authentik_container_labels_traefik_path_prefix (`{{ authentik_container_labels_traefik_path_prefix }}`)
+          must be equal to authentik_path_prefix (`{{ authentik_path_prefix }}`).
+          The role derives authentik's own subpath configuration (`AUTHENTIK_WEB__PATH`) from `authentik_path_prefix`,
+          so override `authentik_path_prefix` instead of overriding the Traefik path prefix separately.
+      when: "authentik_container_labels_traefik_path_prefix != authentik_path_prefix"

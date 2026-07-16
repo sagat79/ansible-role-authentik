@@ -4,13 +4,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
+- name: Ensure authentik outpost systemd services are stopped and removed
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/remove_service.yml"
+  loop: "{{ authentik_outposts_definitions }}"
+  loop_control:
+    loop_var: outpost_definition
+    label: "{{ outpost_definition.type }}"
+  vars:
+    item:
+      service: "{{ outpost_definition.identifier }}.service"
+      path: "{{ devture_systemd_docker_base_systemd_path }}/{{ outpost_definition.identifier }}.service"
+
 - name: Ensure authentik systemd services are stopped and removed
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/remove_service.yml"
   with_items:
-    - service: "{{ authentik_outpost_ldap_identifier }}.service"
-      path: "{{ devture_systemd_docker_base_systemd_path }}/{{ authentik_outpost_ldap_identifier }}.service"
-    - service: "{{ authentik_outpost_radius_identifier }}.service"
-      path: "{{ devture_systemd_docker_base_systemd_path }}/{{ authentik_outpost_radius_identifier }}.service"
     - service: "{{ authentik_worker_identifier }}.service"
       path: "{{ devture_systemd_docker_base_systemd_path }}/{{ authentik_worker_identifier }}.service"
     - service: "{{ authentik_server_identifier }}.service"

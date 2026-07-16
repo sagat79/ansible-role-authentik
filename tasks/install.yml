@@ -125,6 +125,7 @@
   with_items: "{{ authentik_outposts_definitions }}"
   loop_control:
     label: "{{ item.type }}"
+  register: authentik_outpost_env_files_result
 
 - name: Ensure authentik outpost container images are pulled via community.docker.docker_image_pull
   when: devture_systemd_docker_base_container_image_pull_method == 'ansible-module' and item.enabled | bool
@@ -163,6 +164,7 @@
   with_items: "{{ authentik_outposts_definitions }}"
   loop_control:
     label: "{{ item.type }}"
+  register: authentik_outpost_systemd_services_result
 
 - name: Ensure disabled authentik outpost systemd services are removed
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/remove_service.yml"
@@ -193,4 +195,14 @@
         or authentik_systemd_services_result.changed | default(false)
         or authentik_container_image_pull_result_ansible_module.changed | default(false)
         or authentik_container_image_pull_result_command.changed | default(false)
+      }}
+
+- name: Determine whether authentik outposts need a restart
+  ansible.builtin.set_fact:
+    authentik_outposts_restart_necessary: >-
+      {{
+        authentik_outpost_env_files_result.changed | default(false)
+        or authentik_outpost_systemd_services_result.changed | default(false)
+        or authentik_outpost_image_pull_result_ansible_module.changed | default(false)
+        or authentik_outpost_image_pull_result_command.changed | default(false)
       }}

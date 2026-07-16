@@ -8,12 +8,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#
 Since authentik 2025.8, Prometheus metrics (port 9300) are served by the
 worker container, not by the server container.
+
+The metrics labels are attached whenever metrics are enabled (mirroring the
+behavior these labels had when they lived in the server's labels file), so
+that Traefik setups with `exposedByDefault` keep working even when
+`authentik_container_labels_traefik_enabled` is false.
 #}
-{% if authentik_metrics_enabled and authentik_container_labels_traefik_enabled %}
+{% if authentik_metrics_enabled %}
+{% if authentik_container_labels_traefik_enabled %}
 traefik.enable=true
 
 {% if authentik_container_labels_traefik_docker_network %}
 traefik.docker.network={{ authentik_container_labels_traefik_docker_network }}
+{% endif %}
 {% endif %}
 
 traefik.http.routers.{{ authentik_identifier }}-metrics.rule={{ authentik_metrics_container_labels_traefik_rule }}

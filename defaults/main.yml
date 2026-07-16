@@ -398,7 +398,10 @@ authentik_worker_container_network: "{{ authentik_container_network }}"
 # A list of additional container networks that the container would be connected to.
 # The role does not create these networks, so make sure they already exist.
 # Use this to expose this container to a reverse proxy, which runs in a different container network.
-authentik_worker_container_additional_networks: []
+# By default, the worker joins the same additional networks as the server, so that
+# the metrics endpoint (served by the worker since authentik 2025.8) is reachable
+# from the same reverse-proxy network.
+authentik_worker_container_additional_networks: "{{ authentik_container_additional_networks }}"
 
 # List of systemd services that the authentik worker systemd service depends on
 authentik_worker_systemd_required_services_list: "{{ authentik_worker_systemd_required_services_list_default + authentik_worker_systemd_required_services_list_auto + authentik_worker_systemd_required_services_list_custom }}"
@@ -483,11 +486,10 @@ authentik_metrics_container_labels_traefik_tls_certResolver: default  # noqa var
 # This role can run those as additional containers (systemd services).
 #
 # To use an outpost:
-# 1. enable it below and run the playbook
-# 2. create an outpost of the corresponding type in the authentik admin
+# 1. create an outpost of the corresponding type in the authentik admin
 #    interface (Applications -> Outposts)
-# 3. copy its token (View Deployment Info) into the corresponding `_token` variable
-# 4. re-run the playbook
+# 2. copy its token (View Deployment Info) into the corresponding `_token` variable
+# 3. enable the outpost below and run the playbook
 #
 # The outpost containers run the same version as the authentik instance,
 # as required by authentik.
@@ -572,6 +574,13 @@ authentik_outpost_radius_systemd_required_services_list_custom: []
 
 # Additional environment variables for the RADIUS outpost container
 authentik_outpost_radius_environment_variables_additional_variables: ""
+
+# authentik_outposts_restart_necessary indicates whether the outpost systemd
+# services need to be restarted (computed during installation from changes to
+# the outpost environment files, systemd services and container images).
+# It is kept separate from authentik_restart_necessary, so that outpost-only
+# changes (e.g. a new token) don't cause an unnecessary server/worker restart.
+authentik_outposts_restart_necessary: false
 
 # authentik_outposts_definitions is the list of outposts this role manages.
 # It is computed from the settings above. Do not override it.
