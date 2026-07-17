@@ -43,43 +43,117 @@ version) and create the inventory:
 
 ```ini
 [mash_servers]
+# mash.example.com — как Ansible нарича машината (произволно име);
+# ansible_host — реалното IP на VM-а; ansible_ssh_user — потребителят от
+# cloud-init, с който влизате по SSH; become=true — да ползва sudo.
 mash.example.com ansible_host=<VM-IP> ansible_ssh_user=<user> become=true
 ```
 
-`inventory/host_vars/mash.example.com/vars.yml` (minimal test config):
+`inventory/host_vars/mash.example.com/vars.yml` (minimal test config, всяка
+променлива е обяснена в коментара над нея):
 
 ```yaml
 ---
-mash_playbook_generic_secret_key: ''  # pwgen -s 64 1
+########################################################################
+# Общи настройки на playbook-а
+########################################################################
 
-# Docker + Traefik + Postgres come from the playbook
+# Главният "семеен" ключ на MASH playbook-а. От него playbook-ът си извежда
+# автоматично разни вътрешни пароли (например паролата, с която authentik
+# се връзва към Postgres) — така не се налага да измисляте парола за всяка
+# услуга поотделно. Генерира се веднъж и НЕ се променя после (иначе
+# изведените пароли ще се разминат с вече създадените в базата).
+# Генериране: pwgen -s 64 1   (или: openssl rand -hex 32)
+mash_playbook_generic_secret_key: ''
+
+# Казва на playbook-а сам да инсталира Docker на сървъра.
+# Оставете true — не инсталирайте Docker ръчно, за да е всичко еднообразно.
 mash_playbook_docker_installation_enabled: true
+
+# Инсталира Python библиотеката, с която Ansible управлява Docker
+# (без нея задачите за образи/мрежи ще гърмят). Просто оставете true.
 devture_docker_sdk_for_python_installation_enabled: true
 
+########################################################################
+# Traefik (reverse proxy — той поема HTTPS и насочва към контейнерите)
+########################################################################
+
+# Включва Traefik. Той стои "отпред", взима сертификати от Let's Encrypt
+# и препраща заявките към authentik по вътрешната Docker мрежа.
 traefik_enabled: true
+
+# Имейлът, с който Traefik се представя пред Let's Encrypt.
+# На него ще получите предупреждение, ако сертификат изтича и не се подновява.
+# Слагайте реален имейл, не e нужно да е на същия домейн.
 traefik_config_certificatesResolvers_acme_email: you@example.com
-# For a LAN-only test without port forwarding, prefer a DNS-01 challenge
-# (see the playbook's Traefik documentation), or use self-signed certificates.
 
+# Забележка: по подразбиране Let's Encrypt проверява домейна, като се свързва
+# към порт 80/443 на машината (HTTP challenge) — това изисква port forward
+# от рутера. Ако тестът е само в домашната мрежа, ползвайте DNS-01 challenge
+# (описан в Traefik документацията на playbook-а — иска API token за DNS
+# доставчика ви) или се примирете със self-signed сертификат.
+
+########################################################################
+# PostgreSQL (базата данни на authentik)
+########################################################################
+
+# Включва Postgres контейнера на playbook-а. authentik автоматично ще бъде
+# насочен към него — нищо друго не настройвате за връзката.
 postgres_enabled: true
-postgres_connection_password: ''  # pwgen -s 64 1
 
+# Паролата на superuser-а на Postgres. Ползва се само вътрешно от playbook-а
+# (вие никога не я пишете на ръка някъде). Генерирайте я и я забравете.
+# Генериране: pwgen -s 64 1
+postgres_connection_password: ''
+
+########################################################################
 # authentik
+########################################################################
+
+# Включва самия authentik (server + worker контейнери).
 authentik_enabled: true
+
+# Домейнът, на който ще отваряте authentik в браузъра. Трябва да имате
+# DNS запис (или ред в /etc/hosts на лаптопа ви), който сочи към IP-то на VM-а.
 authentik_hostname: sso-test.example.com
-authentik_secret_key: ''  # pwgen -s 64 1
 
-# Skip the manual initial-setup flow:
+# Таен ключ, с който authentik подписва бисквитките на сесиите.
+# Генерира се веднъж; смяната му по-късно разлогва всички потребители.
+# Генериране: pwgen -s 64 1
+authentik_secret_key: ''
+
+# --- Първоначален администратор (bootstrap) ---
+# Тези три реда създават админ акаунта "akadmin" автоматично при ПЪРВОТО
+# стартиране, за да не минавате ръчно през setup екрана в браузъра.
+# Действат само на чиста инсталация — после промяната им няма ефект.
+
+# Имейлът на админ акаунта (с него се логвате).
 authentik_bootstrap_email: admin@example.com
-authentik_bootstrap_password: ''  # test-only password
-authentik_bootstrap_token: ''     # optional API token, handy for the checks below
 
-# Metrics (test 3):
+# Паролата на админ акаунта. Това е тестова среда — сложете нещо просто,
+# но НЕ преизползвайте истинска ваша парола.
+authentik_bootstrap_password: ''
+
+# По желание: готов API token за админа. Удобен е за проверките по-долу
+# (curl към API-то без логин през браузър). Генериране: pwgen -s 48 1
+authentik_bootstrap_token: ''
+
+# --- Метрики (за тест 3) ---
+# Публикува Prometheus метриките на authentik през Traefik на
+# https://<hostname>/metrics. В реална среда бихте добавили и Basic Auth
+# (authentik_metrics_container_labels_traefik_basicauth_*), за теста не е нужно.
 authentik_metrics_enabled: true
 
-# Brands (test 6) — uncomment after the base install works:
+# --- Brands (за тест 6) — разкоментирайте СЛЕД като базовата инсталация работи ---
+# Brands = различен облик (заглавие, лого) според домейна, от който влизате.
+# Първият ред казва на Traefik да приема и втория домейн (иначе заявките
+# към него изобщо не стигат до authentik). За него също трябва DNS запис!
 # authentik_container_labels_traefik_additional_hostnames:
 #   - sso-test2.example.com
+#
+# Списъкът с брандове: domain = кой домейн какъв облик получава;
+# branding_title = заглавието в интерфейса; default: true = резервният бранд,
+# който се ползва, когато никой domain не съвпадне (може само един такъв).
 # authentik_brands:
 #   - domain: sso-test.example.com
 #     branding_title: Test SSO
