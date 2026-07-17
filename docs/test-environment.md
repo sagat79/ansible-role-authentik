@@ -175,6 +175,40 @@ Install:
 ansible-playbook -i inventory/hosts setup.yml --tags=install-all,start
 ```
 
+## Variant B: on a server that also runs matrix-docker-ansible-deploy
+
+If the test machine (or the eventual production server) already runs the
+[matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy)
+playbook, its Traefik should keep managing HTTPS, and MASH must be told to
+reuse it instead of starting its own. This mirrors the upstream example
+[`examples/mash-for-matrix-docker-ansible-deploy-users/vars.yml`](https://github.com/mother-of-all-self-hosting/mash-playbook/blob/main/examples/mash-for-matrix-docker-ansible-deploy-users/vars.yml).
+
+Replace the Traefik section of the `vars.yml` above with:
+
+```yaml
+# Prefix all MASH services (mash-authentik, mash-postgres, ...) so their
+# container/service names never collide with the matrix-* ones.
+mash_playbook_service_identifier_prefix: 'mash-'
+mash_playbook_service_base_directory_name_prefix: 'mash-'
+
+# Don't install a MASH-managed Traefik — the Matrix playbook already runs one.
+mash_playbook_reverse_proxy_type: other-traefik-container
+
+# The name of the Docker network the Matrix playbook's Traefik lives on.
+# MASH services (authentik included) get attached to it so Traefik can
+# reach them. `traefik` is the Matrix playbook's default network name.
+mash_playbook_reverse_proxyable_services_additional_network: traefik
+
+# The Matrix playbook's Traefik listens on the `web-secure` entrypoint and
+# uses the `default` certificate resolver — which are exactly this role's
+# defaults, so no extra authentik_* Traefik settings are needed.
+```
+
+Everything else (Postgres, authentik, the tests below) stays the same. Note
+that with this variant the systemd services are named `mash-authentik-server`
+/ `mash-authentik-worker` (because of the prefix), so adjust the `systemctl`
+commands in the checklist accordingly.
+
 ## Test checklist
 
 1. **Fresh install + bootstrap**: `systemctl status mash-authentik-server
