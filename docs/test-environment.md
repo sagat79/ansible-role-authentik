@@ -43,117 +43,124 @@ version) and create the inventory:
 
 ```ini
 [mash_servers]
-# mash.example.com — как Ansible нарича машината (произволно име);
-# ansible_host — реалното IP на VM-а; ansible_ssh_user — потребителят от
-# cloud-init, с който влизате по SSH; become=true — да ползва sudo.
+# mash.example.com — the name Ansible uses for the machine (any name works);
+# ansible_host — the VM's actual IP; ansible_ssh_user — the cloud-init user
+# you SSH in as; become=true — use sudo for privileged tasks.
 mash.example.com ansible_host=<VM-IP> ansible_ssh_user=<user> become=true
 ```
 
-`inventory/host_vars/mash.example.com/vars.yml` (minimal test config, всяка
-променлива е обяснена в коментара над нея):
+`inventory/host_vars/mash.example.com/vars.yml` (minimal test config; every
+variable is explained in the comment above it):
 
 ```yaml
 ---
 ########################################################################
-# Общи настройки на playbook-а
+# General playbook settings
 ########################################################################
 
-# Главният "семеен" ключ на MASH playbook-а. От него playbook-ът си извежда
-# автоматично разни вътрешни пароли (например паролата, с която authentik
-# се връзва към Postgres) — така не се налага да измисляте парола за всяка
-# услуга поотделно. Генерира се веднъж и НЕ се променя после (иначе
-# изведените пароли ще се разминат с вече създадените в базата).
-# Генериране: pwgen -s 64 1   (или: openssl rand -hex 32)
+# The playbook's main "family" key. The playbook automatically derives
+# various internal passwords from it (for example, the password authentik
+# uses to connect to Postgres) — so you don't have to invent a password for
+# every service yourself. Generate it once and NEVER change it afterwards
+# (otherwise the derived passwords no longer match what's already in the
+# database).
+# Generate with: pwgen -s 64 1   (or: openssl rand -hex 32)
 mash_playbook_generic_secret_key: ''
 
-# Казва на playbook-а сам да инсталира Docker на сървъра.
-# Оставете true — не инсталирайте Docker ръчно, за да е всичко еднообразно.
+# Tells the playbook to install Docker on the server itself.
+# Leave it true — don't install Docker by hand, so everything stays uniform.
 mash_playbook_docker_installation_enabled: true
 
-# Инсталира Python библиотеката, с която Ansible управлява Docker
-# (без нея задачите за образи/мрежи ще гърмят). Просто оставете true.
+# Installs the Python library Ansible uses to talk to Docker
+# (without it, the image/network tasks fail). Just leave it true.
 devture_docker_sdk_for_python_installation_enabled: true
 
 ########################################################################
-# Traefik (reverse proxy — той поема HTTPS и насочва към контейнерите)
+# Traefik (the reverse proxy — it terminates HTTPS and routes to containers)
 ########################################################################
 
-# Включва Traefik. Той стои "отпред", взима сертификати от Let's Encrypt
-# и препраща заявките към authentik по вътрешната Docker мрежа.
+# Enables Traefik. It sits "in front", obtains certificates from
+# Let's Encrypt and forwards requests to authentik over the internal
+# Docker network.
 traefik_enabled: true
 
-# Имейлът, с който Traefik се представя пред Let's Encrypt.
-# На него ще получите предупреждение, ако сертификат изтича и не се подновява.
-# Слагайте реален имейл, не e нужно да е на същия домейн.
+# The email Traefik registers with at Let's Encrypt.
+# You'll get a warning there if a certificate is about to expire and fails
+# to renew. Use a real address; it doesn't have to be on the same domain.
 traefik_config_certificatesResolvers_acme_email: you@example.com
 
-# Забележка: по подразбиране Let's Encrypt проверява домейна, като се свързва
-# към порт 80/443 на машината (HTTP challenge) — това изисква port forward
-# от рутера. Ако тестът е само в домашната мрежа, ползвайте DNS-01 challenge
-# (описан в Traefik документацията на playbook-а — иска API token за DNS
-# доставчика ви) или се примирете със self-signed сертификат.
+# Note: by default Let's Encrypt validates the domain by connecting to
+# ports 80/443 on the machine (HTTP challenge) — that requires a port
+# forward on your router. If the test lives only on your home LAN, use a
+# DNS-01 challenge instead (see the playbook's Traefik documentation — it
+# needs an API token for your DNS provider), or accept a self-signed
+# certificate.
 
 ########################################################################
-# PostgreSQL (базата данни на authentik)
+# PostgreSQL (authentik's database)
 ########################################################################
 
-# Включва Postgres контейнера на playbook-а. authentik автоматично ще бъде
-# насочен към него — нищо друго не настройвате за връзката.
+# Enables the playbook's Postgres container. authentik is pointed at it
+# automatically — you don't configure anything else for the connection.
 postgres_enabled: true
 
-# Паролата на superuser-а на Postgres. Ползва се само вътрешно от playbook-а
-# (вие никога не я пишете на ръка някъде). Генерирайте я и я забравете.
-# Генериране: pwgen -s 64 1
+# The Postgres superuser password. It's only used internally by the
+# playbook (you never type it anywhere yourself). Generate it and forget it.
+# Generate with: pwgen -s 64 1
 postgres_connection_password: ''
 
 ########################################################################
 # authentik
 ########################################################################
 
-# Включва самия authentik (server + worker контейнери).
+# Enables authentik itself (the server + worker containers).
 authentik_enabled: true
 
-# Домейнът, на който ще отваряте authentik в браузъра. Трябва да имате
-# DNS запис (или ред в /etc/hosts на лаптопа ви), който сочи към IP-то на VM-а.
+# The domain you'll open authentik at in the browser. You need a DNS record
+# (or an /etc/hosts line on your laptop) pointing it at the VM's IP.
 authentik_hostname: sso-test.example.com
 
-# Таен ключ, с който authentik подписва бисквитките на сесиите.
-# Генерира се веднъж; смяната му по-късно разлогва всички потребители.
-# Генериране: pwgen -s 64 1
+# The secret key authentik signs session cookies with.
+# Generate once; changing it later logs out all users.
+# Generate with: pwgen -s 64 1
 authentik_secret_key: ''
 
-# --- Първоначален администратор (bootstrap) ---
-# Тези три реда създават админ акаунта "akadmin" автоматично при ПЪРВОТО
-# стартиране, за да не минавате ръчно през setup екрана в браузъра.
-# Действат само на чиста инсталация — после промяната им няма ефект.
+# --- Initial administrator (bootstrap) ---
+# These three lines create the "akadmin" admin account automatically on the
+# FIRST start, so you don't have to click through the setup screen in the
+# browser. They only take effect on a fresh installation — changing them
+# later has no effect.
 
-# Имейлът на админ акаунта (с него се логвате).
+# The admin account's email (you log in with it).
 authentik_bootstrap_email: admin@example.com
 
-# Паролата на админ акаунта. Това е тестова среда — сложете нещо просто,
-# но НЕ преизползвайте истинска ваша парола.
+# The admin account's password. This is a test environment — keep it
+# simple, but do NOT reuse one of your real passwords.
 authentik_bootstrap_password: ''
 
-# По желание: готов API token за админа. Удобен е за проверките по-долу
-# (curl към API-то без логин през браузър). Генериране: pwgen -s 48 1
+# Optional: a ready-made API token for the admin. Handy for the checks
+# below (curl against the API without a browser login).
+# Generate with: pwgen -s 48 1
 authentik_bootstrap_token: ''
 
-# --- Метрики (за тест 3) ---
-# Публикува Prometheus метриките на authentik през Traefik на
-# https://<hostname>/metrics. В реална среда бихте добавили и Basic Auth
-# (authentik_metrics_container_labels_traefik_basicauth_*), за теста не е нужно.
+# --- Metrics (for test 3) ---
+# Publishes authentik's Prometheus metrics via Traefik at
+# https://<hostname>/metrics. In a real environment you'd also add Basic
+# Auth (authentik_metrics_container_labels_traefik_basicauth_*); for the
+# test it's not needed.
 authentik_metrics_enabled: true
 
-# --- Brands (за тест 6) — разкоментирайте СЛЕД като базовата инсталация работи ---
-# Brands = различен облик (заглавие, лого) според домейна, от който влизате.
-# Първият ред казва на Traefik да приема и втория домейн (иначе заявките
-# към него изобщо не стигат до authentik). За него също трябва DNS запис!
+# --- Brands (for test 6) — uncomment AFTER the base install works ---
+# Brands = a different look (title, logo) depending on the domain you come
+# from. The first block tells Traefik to also accept the second domain
+# (otherwise requests for it never reach authentik at all). It needs a DNS
+# record too!
 # authentik_container_labels_traefik_additional_hostnames:
 #   - sso-test2.example.com
 #
-# Списъкът с брандове: domain = кой домейн какъв облик получава;
-# branding_title = заглавието в интерфейса; default: true = резервният бранд,
-# който се ползва, когато никой domain не съвпадне (може само един такъв).
+# The brand list: domain = which domain gets which look;
+# branding_title = the title shown in the UI; default: true = the fallback
+# brand used when no domain matches (only one entry may have it).
 # authentik_brands:
 #   - domain: sso-test.example.com
 #     branding_title: Test SSO
