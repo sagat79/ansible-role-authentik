@@ -87,8 +87,11 @@ authentik_listen_http: ""
 
 # A list of CIDRs from which the X-Forwarded-For header is trusted (reverse proxies).
 # An empty list keeps authentik's own default (private ranges + loopback).
+# To add your own entries, use authentik_listen_trusted_proxy_cidrs_custom.
 # Example: ['10.0.2.0/24']
-authentik_listen_trusted_proxy_cidrs: []
+authentik_listen_trusted_proxy_cidrs: "{{ authentik_listen_trusted_proxy_cidrs_auto + authentik_listen_trusted_proxy_cidrs_custom }}"
+authentik_listen_trusted_proxy_cidrs_auto: []
+authentik_listen_trusted_proxy_cidrs_custom: []
 
 # The domain the session cookie is set for. Empty means the domain authentik is accessed under.
 # Set this (e.g. `example.com`) to share the cookie across subdomains.
@@ -230,7 +233,10 @@ authentik_container_labels_traefik_path_prefix: "{{ authentik_path_prefix }}"
 # so requests for them reach the authentik container.
 # When TLS is enabled, the certificate resolver will obtain certificates for these hostnames too.
 # See the `brands` section below for configuring per-domain branding.
-authentik_container_labels_traefik_additional_hostnames: []
+# To add your own entries, use authentik_container_labels_traefik_additional_hostnames_custom.
+authentik_container_labels_traefik_additional_hostnames: "{{ authentik_container_labels_traefik_additional_hostnames_auto + authentik_container_labels_traefik_additional_hostnames_custom }}"
+authentik_container_labels_traefik_additional_hostnames_auto: []
+authentik_container_labels_traefik_additional_hostnames_custom: []
 
 # The Host-matching part of the Traefik rule, covering the main hostname and any additional hostnames.
 authentik_container_labels_traefik_host_rule: "{{ '(' if authentik_container_labels_traefik_additional_hostnames | length > 0 else '' }}Host(`{{ ([authentik_container_labels_traefik_hostname] + authentik_container_labels_traefik_additional_hostnames) | join('`) || Host(`') }}`){{ ')' if authentik_container_labels_traefik_additional_hostnames | length > 0 else '' }}"
@@ -569,7 +575,11 @@ authentik_blueprints_path: "{{ authentik_base_path }}/blueprints"
 #   - domain: login.other-project.org
 #     branding_title: Other Project
 #     branding_logo: /media/public/other-project.svg
-authentik_brands: []
+#
+# To define your own brands, use authentik_brands_custom.
+authentik_brands: "{{ authentik_brands_auto + authentik_brands_custom }}"
+authentik_brands_auto: []
+authentik_brands_custom: []
 
 # The auto-generated blueprint definition for authentik_brands. Do not override.
 authentik_brands_blueprint_definition:
@@ -643,16 +653,20 @@ authentik_outpost_ldap_container_network: "{{ authentik_container_network }}"
 
 # A list of additional container networks that the container would be connected to.
 # The role does not create these networks, so make sure they already exist.
-authentik_outpost_ldap_container_additional_networks: []
+# To add your own entries, use authentik_outpost_ldap_container_additional_networks_custom.
+authentik_outpost_ldap_container_additional_networks: "{{ authentik_outpost_ldap_container_additional_networks_auto + authentik_outpost_ldap_container_additional_networks_custom }}"
+authentik_outpost_ldap_container_additional_networks_auto: []
+authentik_outpost_ldap_container_additional_networks_custom: []
 
 # List of systemd services that the LDAP outpost systemd service depends on
-authentik_outpost_ldap_systemd_required_services_list: "{{ authentik_outpost_ldap_systemd_required_services_list_default + authentik_outpost_ldap_systemd_required_services_list_custom }}"
+authentik_outpost_ldap_systemd_required_services_list: "{{ authentik_outpost_ldap_systemd_required_services_list_default + authentik_outpost_ldap_systemd_required_services_list_auto + authentik_outpost_ldap_systemd_required_services_list_custom }}"
 authentik_outpost_ldap_systemd_required_services_list_default: |
   {{
     ([devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [])
     +
     [(authentik_server_identifier + '.service')]
   }}
+authentik_outpost_ldap_systemd_required_services_list_auto: []
 authentik_outpost_ldap_systemd_required_services_list_custom: []
 
 # Additional environment variables for the LDAP outpost container
@@ -681,16 +695,20 @@ authentik_outpost_radius_container_network: "{{ authentik_container_network }}"
 
 # A list of additional container networks that the container would be connected to.
 # The role does not create these networks, so make sure they already exist.
-authentik_outpost_radius_container_additional_networks: []
+# To add your own entries, use authentik_outpost_radius_container_additional_networks_custom.
+authentik_outpost_radius_container_additional_networks: "{{ authentik_outpost_radius_container_additional_networks_auto + authentik_outpost_radius_container_additional_networks_custom }}"
+authentik_outpost_radius_container_additional_networks_auto: []
+authentik_outpost_radius_container_additional_networks_custom: []
 
 # List of systemd services that the RADIUS outpost systemd service depends on
-authentik_outpost_radius_systemd_required_services_list: "{{ authentik_outpost_radius_systemd_required_services_list_default + authentik_outpost_radius_systemd_required_services_list_custom }}"
+authentik_outpost_radius_systemd_required_services_list: "{{ authentik_outpost_radius_systemd_required_services_list_default + authentik_outpost_radius_systemd_required_services_list_auto + authentik_outpost_radius_systemd_required_services_list_custom }}"
 authentik_outpost_radius_systemd_required_services_list_default: |
   {{
     ([devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [])
     +
     [(authentik_server_identifier + '.service')]
   }}
+authentik_outpost_radius_systemd_required_services_list_auto: []
 authentik_outpost_radius_systemd_required_services_list_custom: []
 
 # Additional environment variables for the RADIUS outpost container

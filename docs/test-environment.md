@@ -6,18 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Testing this role on a real server
 
-This guide describes how to validate this role end-to-end on a dedicated test
-machine (e.g. a Proxmox VM), using the [MASH playbook](https://github.com/mother-of-all-self-hosting/mash-playbook)
-for all the wiring (Docker, PostgreSQL, Traefik).
+This guide describes how to validate this role end-to-end on a dedicated test machine (e.g. a Proxmox VM), using the [MASH playbook](https://github.com/mother-of-all-self-hosting/mash-playbook) for all the wiring (Docker, PostgreSQL, Traefik).
 
 ## Test machine
 
 - Ubuntu 24.04 / Debian 12+ VM: 4 vCPU (host CPU type), 6–8 GB RAM, 32+ GB disk
 - a user with sudo and your SSH key; `python3` installed
-- take a VM snapshot (`clean-os`) before the first run, and roll back to it
-  between destructive tests
-- DNS: point a test hostname (e.g. `sso-test.example.com`) at the machine.
-  For the Brands test, add a second hostname (e.g. `sso-test2.example.com`).
+- take a VM snapshot (`clean-os`) before the first run, and roll back to it between destructive tests
+- DNS: point a test hostname (e.g. `sso-test.example.com`) at the machine. For the Brands test, add a second hostname (e.g. `sso-test2.example.com`).
 
 ## Playbook setup
 
@@ -26,8 +22,7 @@ git clone https://github.com/mother-of-all-self-hosting/mash-playbook.git
 cd mash-playbook
 ```
 
-Edit `requirements.yml` so the authentik role comes from this repository and
-branch instead of the pinned upstream release:
+Edit `requirements.yml` so the authentik role comes from this repository and branch instead of the pinned upstream release:
 
 ```yaml
 - src: git+https://github.com/sagat79/ansible-role-authentik.git
@@ -36,8 +31,7 @@ branch instead of the pinned upstream release:
   activation_prefix: authentik_
 ```
 
-Then fetch the roles (`just roles` or `make roles`, depending on the playbook
-version) and create the inventory:
+Then fetch the roles (`just roles` or `make roles`, depending on the playbook version) and create the inventory:
 
 `inventory/hosts`:
 
@@ -49,8 +43,7 @@ version) and create the inventory:
 mash.example.com ansible_host=<VM-IP> ansible_ssh_user=<user> become=true
 ```
 
-`inventory/host_vars/mash.example.com/vars.yml` (minimal test config; every
-variable is explained in the comment above it):
+`inventory/host_vars/mash.example.com/vars.yml` (minimal test config; every variable is explained in the comment above it):
 
 ```yaml
 ---
@@ -177,11 +170,7 @@ ansible-playbook -i inventory/hosts setup.yml --tags=install-all,start
 
 ## Variant B: on a server that also runs matrix-docker-ansible-deploy
 
-If the test machine (or the eventual production server) already runs the
-[matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy)
-playbook, its Traefik should keep managing HTTPS, and MASH must be told to
-reuse it instead of starting its own. This mirrors the upstream example
-[`examples/mash-for-matrix-docker-ansible-deploy-users/vars.yml`](https://github.com/mother-of-all-self-hosting/mash-playbook/blob/main/examples/mash-for-matrix-docker-ansible-deploy-users/vars.yml).
+If the test machine (or the eventual production server) already runs the [matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy) playbook, its Traefik should keep managing HTTPS, and MASH must be told to reuse it instead of starting its own. This mirrors the upstream example [`examples/mash-for-matrix-docker-ansible-deploy-users/vars.yml`](https://github.com/mother-of-all-self-hosting/mash-playbook/blob/main/examples/mash-for-matrix-docker-ansible-deploy-users/vars.yml).
 
 Replace the Traefik section of the `vars.yml` above with:
 
@@ -204,51 +193,23 @@ mash_playbook_reverse_proxyable_services_additional_network: traefik
 # defaults, so no extra authentik_* Traefik settings are needed.
 ```
 
-Everything else (Postgres, authentik, the tests below) stays the same. Note
-that with this variant the systemd services are named `mash-authentik-server`
-/ `mash-authentik-worker` (because of the prefix), so adjust the `systemctl`
-commands in the checklist accordingly.
+Everything else (Postgres, authentik, the tests below) stays the same. Note that with this variant the systemd services are named `mash-authentik-server` / `mash-authentik-worker` (because of the prefix), so adjust the `systemctl` commands in the checklist accordingly.
 
 ## Test checklist
 
-1. **Fresh install + bootstrap**: `systemctl status mash-authentik-server
-   mash-authentik-worker` are active; `docker ps` shows both containers
-   healthy. Log in at `https://sso-test.example.com` with the bootstrap
-   credentials — the initial-setup flow should NOT be required.
-2. **Worker health**: `docker exec mash-authentik-worker ak healthcheck` (or
-   check the container's health status).
-3. **Metrics**: `curl -H 'Host: sso-test.example.com'
-   https://<VM-IP>/metrics` returns Prometheus metrics (served by the
-   *worker* container). If you enabled
-   `authentik_metrics_container_labels_traefik_basicauth_*`, verify a 401
-   without credentials and a 200 with them.
-4. **Blueprints**: add a simple entry to `authentik_blueprints_custom`,
-   re-run the playbook, and confirm the blueprint appears (and applies) under
-   **Customization → Blueprints** in the admin UI.
-5. **LDAP outpost**: create an LDAP provider + outpost in the admin UI, copy
-   the token into `authentik_outpost_ldap_token`, set
-   `authentik_outpost_ldap_enabled: true` and
-   `authentik_outpost_ldap_container_ldap_host_bind_port: "389"`, re-run,
-   then test with `ldapsearch -H ldap://<VM-IP> -D
-   "cn=<user>,ou=users,dc=ldap,dc=goauthentik,dc=io" -w <password>`.
-   Change the token and re-run to confirm
-   `authentik_outposts_restart_necessary` triggers a restart.
-6. **Brands**: uncomment the brands block above, re-run, then open both
-   hostnames — each should show its own title/branding, and the second one is
-   the default (fallback) brand. Check the TLS certificate covers both names.
-7. **Uninstall**: set `authentik_enabled: false`, re-run with
-   `--tags=setup-all`, and confirm all authentik services and containers
-   (including outposts) are gone.
+1. **Fresh install + bootstrap**: `systemctl status mash-authentik-server mash-authentik-worker` are active; `docker ps` shows both containers healthy. Log in at `https://sso-test.example.com` with the bootstrap credentials — the initial-setup flow should NOT be required.
+2. **Worker health**: `docker exec mash-authentik-worker ak healthcheck` (or check the container's health status).
+3. **Metrics**: `curl -H 'Host: sso-test.example.com' https://<VM-IP>/metrics` returns Prometheus metrics (served by the *worker* container). If you enabled `authentik_metrics_container_labels_traefik_basicauth_*`, verify a 401 without credentials and a 200 with them.
+4. **Blueprints**: add a simple entry to `authentik_blueprints_custom`, re-run the playbook, and confirm the blueprint appears (and applies) under **Customization → Blueprints** in the admin UI.
+5. **LDAP outpost**: create an LDAP provider + outpost in the admin UI, copy the token into `authentik_outpost_ldap_token`, set `authentik_outpost_ldap_enabled: true` and `authentik_outpost_ldap_container_ldap_host_bind_port: "389"`, re-run, then test with `ldapsearch -H ldap://<VM-IP> -D "cn=<user>,ou=users,dc=ldap,dc=goauthentik,dc=io" -w <password>`. Change the token and re-run to confirm `authentik_outposts_restart_necessary` triggers a restart.
+6. **Brands**: uncomment the brands block above, re-run, then open both hostnames — each should show its own title/branding, and the second one is the default (fallback) brand. Check the TLS certificate covers both names.
+7. **Uninstall**: set `authentik_enabled: false`, re-run with `--tags=setup-all`, and confirm all authentik services and containers (including outposts) are gone.
 
-Roll back to the `clean-os` snapshot and repeat from step 1 for a full
-regression pass after role changes.
+Roll back to the `clean-os` snapshot and repeat from step 1 for a full regression pass after role changes.
 
 ## Multi-service test plan: authentik + Ghost on one host
 
-This section extends the guide into a phased plan that also installs and
-tests the [Ghost](https://ghost.org/) blogging platform via the
-[derfeldev/ansible-role-ghost](https://github.com/derfeldev/ansible-role-ghost)
-role, alongside authentik.
+This section extends the guide into a phased plan that also installs and tests the [Ghost](https://ghost.org/) blogging platform via the [derfeldev/ansible-role-ghost](https://github.com/derfeldev/ansible-role-ghost) role, alongside authentik.
 
 ### Domains (all pointing at the test machine's IP)
 
@@ -258,8 +219,7 @@ role, alongside authentik.
 | `sso-test2.example.com` | authentik — second brand (Brands test) | 4 |
 | `blog-test.example.com` | Ghost | 3 |
 
-The mailer (exim-relay) and the databases are internal-only and need no
-public domains.
+The mailer (exim-relay) and the databases are internal-only and need no public domains.
 
 ### Additional requirements.yml entry
 
@@ -279,12 +239,29 @@ Next to the authentik entry from the top of this guide, also add:
 # Mailer (exim-relay) — outgoing email for all services
 ########################################################################
 
-# A small SMTP relay all services send mail through. For a LAN test the
-# mails will likely land in spam (no reverse DNS / DKIM) — that's fine,
-# we only verify the sending path works.
+# A small SMTP relay all services send mail through. It gets a dedicated
+# subdomain whose name makes its purpose obvious (an outgoing-only MTA),
+# and DKIM/SPF/DMARC are set up so mails actually get delivered.
 exim_relay_enabled: true
-exim_relay_hostname: mail.example.com
-exim_relay_sender_address: test@example.com
+
+# The dedicated mail subdomain. All service sender addresses live under it
+# (authentik@mta.example.com, ghost@mta.example.com, ...), keeping the mail
+# identity separate from the web-facing domains.
+exim_relay_hostname: mta.example.com
+
+# The default sender for services that don't set their own address.
+exim_relay_sender_address: noreply@mta.example.com
+
+# DKIM signing. Generate the key on the server:
+#   openssl genrsa -out /tmp/dkim.private 2048
+#   openssl rsa -in /tmp/dkim.private -pubout -outform der | base64 -w0
+# (the second command prints the p=... value for the DNS record below)
+# Keep the selector at `default` — it matches the DNS record below.
+exim_relay_dkim_selector: default
+exim_relay_dkim_privkey_contents: |
+  -----BEGIN RSA PRIVATE KEY-----
+  ...contents of /tmp/dkim.private...
+  -----END RSA PRIVATE KEY-----
 
 ########################################################################
 # MariaDB (Ghost's database)
@@ -317,34 +294,43 @@ ghost_database_password: ''
 
 # Mail through the exim-relay above (see the Ghost role's
 # docs/mash-playbook-integration.md for the full option list).
+# Per-service sender address: mails from Ghost are identifiable by their
+# From address in mail logs and DMARC reports.
 ghost_mail_enabled: true
 ghost_mail_options_host: "{{ exim_relay_identifier }}"
 ghost_mail_options_port: 8025
 ghost_mail_options_secure: false
-ghost_mail_from: test@example.com
+ghost_mail_from: ghost@mta.example.com
 ```
 
-Also register the MariaDB database for Ghost the way your playbook version
-expects (`mariadb_managed_databases` list entry with the name/username/
-password above), and make sure Ghost's container joins the MariaDB and
-exim-relay networks if your playbook version doesn't wire that
-automatically.
+Give authentik its own sender address too (per-service sender addresses make every service identifiable in mail logs and DMARC reports):
+
+```yaml
+authentik_email_from: authentik@mta.example.com
+```
+
+### Mail DNS records (SPF, DKIM, DMARC)
+
+Create these records for the MTA subdomain (`mta.example.com`):
+
+| Type | Name | Value |
+| --- | --- | --- |
+| A | `mta.example.com` | `<public-IP>` |
+| TXT | `mta.example.com` | `v=spf1 ip4:<public-IP> -all` |
+| TXT | `default._domainkey.mta.example.com` | `v=DKIM1; k=rsa; p=<base64 public key from the openssl command above>` |
+| TXT | `_dmarc.mta.example.com` | `v=DMARC1; p=quarantine; rua=mailto:postmaster@example.com; adkim=s; aspf=s` |
+
+Verify after Phase 1 by sending a test mail to a [mail-tester.com](https://www.mail-tester.com/) address and checking the SPF/DKIM/DMARC scores. Note: on a residential connection the reverse DNS (PTR) of the public IP won't match `mta.example.com` and outbound port 25 may be blocked by the ISP — some providers will still junk the mail. That's a connection limitation, not a configuration error; for production, relay through a smarthost or host the MTA on a VPS.
+
+Also register the MariaDB database for Ghost the way your playbook version expects (`mariadb_managed_databases` list entry with the name/username/ password above), and make sure Ghost's container joins the MariaDB and exim-relay networks if your playbook version doesn't wire that automatically.
 
 ### Phased execution
 
 Each phase must end green before moving on:
 
 - **Phase 0 — prep**: DNS records; VM snapshot (`clean-os`).
-- **Phase 1 — base**: Traefik + Postgres + exim-relay. Check: services
-  active, Traefik answers on 443.
-- **Phase 2 — authentik**: install + checklist tests 1–4 above (bootstrap
-  login, worker health, metrics, blueprint).
-- **Phase 3 — Ghost**: MariaDB + the Ghost role. Check:
-  `https://blog-test.example.com` serves the blog; `/ghost` admin setup
-  completes; a test email goes out through exim-relay; create a post,
-  restart the Ghost container, confirm the post persists.
-- **Phase 4 — extensions**: authentik Brands (both domains, different
-  branding) + the LDAP outpost (checklist tests 5–6).
-- **Phase 5 — destructive**: `authentik_enabled: false` and
-  `ghost_enabled: false` → clean removal (checklist test 7); roll back to
-  the snapshot and repeat the full cycle for an idempotency pass.
+- **Phase 1 — base**: Traefik + Postgres + exim-relay. Check: services active, Traefik answers on 443.
+- **Phase 2 — authentik**: install + checklist tests 1–4 above (bootstrap login, worker health, metrics, blueprint).
+- **Phase 3 — Ghost**: MariaDB + the Ghost role. Check: `https://blog-test.example.com` serves the blog; `/ghost` admin setup completes; a test email goes out through exim-relay; create a post, restart the Ghost container, confirm the post persists.
+- **Phase 4 — extensions**: authentik Brands (both domains, different branding) + the LDAP outpost (checklist tests 5–6).
+- **Phase 5 — destructive**: `authentik_enabled: false` and `ghost_enabled: false` → clean removal (checklist test 7); roll back to the snapshot and repeat the full cycle for an idempotency pass.

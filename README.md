@@ -75,10 +75,7 @@ authentik_blueprints_custom:
 
 ### Brands (per-domain visual settings and defaults)
 
-[Brands](https://docs.goauthentik.io/docs/sys-mgmt/brands) let authentik present different branding
-(title, logo, favicon) and defaults depending on the domain it is accessed under.
-The role applies them declaratively (via an auto-generated blueprint) and can route
-the additional domains through Traefik:
+[Brands](https://docs.goauthentik.io/docs/sys-mgmt/brands) let authentik present different branding (title, logo, favicon) and defaults depending on the domain it is accessed under. The role applies them declaratively (via an auto-generated blueprint) and can route the additional domains through Traefik:
 
 ```yaml
 authentik_container_labels_traefik_additional_hostnames:
@@ -92,8 +89,7 @@ authentik_brands:
     branding_logo: /media/public/other-project.svg
 ```
 
-Point the DNS records of the additional domains at the same server; when TLS is
-enabled, the certificate resolver obtains certificates for them automatically.
+Point the DNS records of the additional domains at the same server; when TLS is enabled, the certificate resolver obtains certificates for them automatically.
 
 ### Prometheus metrics with Basic Auth
 
