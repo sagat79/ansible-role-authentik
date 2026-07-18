@@ -27,10 +27,14 @@ provisioner:
   inventory:
     group_vars:
       all:
+        # Helper variables
+        authentik_debug_service_worker_enabled: false
+        authentik_debug_service_server_enabled: false
+
         # Variables for authentik
         authentik_uid: 1000
         authentik_gid: 1000
-        authentik_hostname: authentik
+        authentik_hostname: localhost
         authentik_container_labels_traefik_enabled: false
         authentik_container_http_host_bind_port: 9000
         authentik_secret_key: secret
