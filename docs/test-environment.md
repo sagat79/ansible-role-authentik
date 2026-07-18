@@ -242,3 +242,109 @@ commands in the checklist accordingly.
 
 Roll back to the `clean-os` snapshot and repeat from step 1 for a full
 regression pass after role changes.
+
+## Multi-service test plan: authentik + Ghost on one host
+
+This section extends the guide into a phased plan that also installs and
+tests the [Ghost](https://ghost.org/) blogging platform via the
+[derfeldev/ansible-role-ghost](https://github.com/derfeldev/ansible-role-ghost)
+role, alongside authentik.
+
+### Domains (all pointing at the test machine's IP)
+
+| Domain | Service | Phase |
+| --- | --- | --- |
+| `sso-test.example.com` | authentik (main hostname) | 2 |
+| `sso-test2.example.com` | authentik — second brand (Brands test) | 4 |
+| `blog-test.example.com` | Ghost | 3 |
+
+The mailer (exim-relay) and the databases are internal-only and need no
+public domains.
+
+### Additional requirements.yml entry
+
+Next to the authentik entry from the top of this guide, also add:
+
+```yaml
+- src: git+https://github.com/derfeldev/ansible-role-ghost.git
+  version: main
+  name: ghost
+  activation_prefix: ghost_
+```
+
+### Additional vars.yml sections (Ghost + its database + mail)
+
+```yaml
+########################################################################
+# Mailer (exim-relay) — outgoing email for all services
+########################################################################
+
+# A small SMTP relay all services send mail through. For a LAN test the
+# mails will likely land in spam (no reverse DNS / DKIM) — that's fine,
+# we only verify the sending path works.
+exim_relay_enabled: true
+exim_relay_hostname: mail.example.com
+exim_relay_sender_address: test@example.com
+
+########################################################################
+# MariaDB (Ghost's database)
+########################################################################
+
+# Ghost officially supports MySQL 8 only. The MASH playbook ships a MariaDB
+# role, which works for most installs when Ghost is told to speak the mysql
+# protocol — acceptable for a test environment, but note the caveats in the
+# Ghost role's own documentation (JSON columns, full-text search edge cases)
+# before using this in production.
+mariadb_enabled: true
+# Generate with: pwgen -s 64 1
+mariadb_root_passphrase: ''
+
+########################################################################
+# Ghost
+########################################################################
+
+# Enables Ghost itself.
+ghost_enabled: true
+
+# The domain the blog is served at (needs a DNS record, like the others).
+ghost_hostname: blog-test.example.com
+
+# Database connection — point Ghost at the playbook-managed MariaDB.
+ghost_database_hostname: "{{ mariadb_connection_hostname }}"
+ghost_database_username: ghost
+# Generate with: pwgen -s 64 1
+ghost_database_password: ''
+
+# Mail through the exim-relay above (see the Ghost role's
+# docs/mash-playbook-integration.md for the full option list).
+ghost_mail_enabled: true
+ghost_mail_options_host: "{{ exim_relay_identifier }}"
+ghost_mail_options_port: 8025
+ghost_mail_options_secure: false
+ghost_mail_from: test@example.com
+```
+
+Also register the MariaDB database for Ghost the way your playbook version
+expects (`mariadb_managed_databases` list entry with the name/username/
+password above), and make sure Ghost's container joins the MariaDB and
+exim-relay networks if your playbook version doesn't wire that
+automatically.
+
+### Phased execution
+
+Each phase must end green before moving on:
+
+- **Phase 0 — prep**: DNS records; VM snapshot (`clean-os`).
+- **Phase 1 — base**: Traefik + Postgres + exim-relay. Check: services
+  active, Traefik answers on 443.
+- **Phase 2 — authentik**: install + checklist tests 1–4 above (bootstrap
+  login, worker health, metrics, blueprint).
+- **Phase 3 — Ghost**: MariaDB + the Ghost role. Check:
+  `https://blog-test.example.com` serves the blog; `/ghost` admin setup
+  completes; a test email goes out through exim-relay; create a post,
+  restart the Ghost container, confirm the post persists.
+- **Phase 4 — extensions**: authentik Brands (both domains, different
+  branding) + the LDAP outpost (checklist tests 5–6).
+- **Phase 5 — destructive**: `authentik_enabled: false` and
+  `ghost_enabled: false` → clean removal (checklist test 7); roll back to
+  the snapshot and repeat the full cycle for an idempotency pass.
